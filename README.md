@@ -29,6 +29,10 @@ Para instalar manualmente, copia `app-debug.apk` a la tableta, ábrelo desde Arc
 
 El APK debug está firmado automáticamente con la clave de depuración local de Gradle. Sirve para instalación manual y pruebas. No debe distribuirse como versión final: la clave debug puede cambiar entre equipos o reinstalaciones, y las instalaciones firmadas con otra clave no se pueden actualizar encima; habrá que desinstalar primero y eso borra los datos de la app. La aplicación mantiene `applicationId` `com.agendalavanda` y `versionCode` para futuras actualizaciones.
 
+### Descargar la prueba desde el teléfono
+
+El proyecto está en un repositorio privado de GitHub. Abre la [versión de prueba 1.0.0](https://github.com/Andrex-Code/agenda-lavanda/releases/tag/v1.0.0-test) desde el teléfono con la cuenta de GitHub autorizada, descarga `AgendaLavanda-debug.apk` e instálalo desde Descargas. Android puede pedir permiso para instalar desde el navegador o gestor de archivos. Para instalar futuras APK debug encima de esta, deben conservarse tanto el mismo equipo/keystore debug como la firma. Antes de cambiar a una compilación release, exporta tus datos; probablemente habrá que desinstalar la versión debug y eso borra sus datos.
+
 ## Crear un release y conservar la clave
 
 Genera una clave de publicación una sola vez en un equipo seguro. No subas el archivo ni sus contraseñas al repositorio:
