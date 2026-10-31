@@ -33,7 +33,7 @@ object Backup {
             require(section in valid) { "La copia contiene una sección desconocida." }
             val date = o.optString("date").take(20)
             require(date.isBlank() || runCatching { LocalDate.parse(date) }.isSuccess) { "La copia contiene una fecha inválida." }
-            Entry(section = section, title = o.getString("title").take(300), body = o.optString("body").take(100_000),
+            Entry(section = section, title = o.getString("title"), body = o.optString("body"),
                 date = date, done = o.optBoolean("done"), updatedAt = o.optLong("updatedAt", System.currentTimeMillis()))
         }
         return ImportData(entries, root.optString("agendaName", "Mi Agenda").take(60), root.optString("userName", "").take(60))

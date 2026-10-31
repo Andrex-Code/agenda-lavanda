@@ -8,6 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -41,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.room.Room
 import com.agendalavanda.data.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -77,13 +82,13 @@ private fun AgendaApp(dao: EntryDao) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val all by dao.observeAll().collectAsStateWithLifecycle(emptyList())
-    val prefs by context.prefs.data.collectAsStateWithLifecycle(initialValue = emptyPreferences())
-    val name = prefs[pAgenda] ?: ""
-    val user = prefs[pUser] ?: ""
-    val theme = (prefs[pTheme] ?: 0).coerceIn(0, palettes.lastIndex)
-    val goal = (prefs[pWaterGoal] ?: 8).coerceIn(1, 30)
+    val prefs by context.prefs.data.map { it as Preferences? }.collectAsStateWithLifecycle(initialValue = null)
+    val name = prefs?.get(pAgenda) ?: ""
+    val user = prefs?.get(pUser) ?: ""
+    val theme = (prefs?.get(pTheme) ?: 0).coerceIn(0, palettes.lastIndex)
+    val goal = (prefs?.get(pWaterGoal) ?: 8).coerceIn(1, 30)
     val colors = palettes[theme]
-    var page by remember { mutableStateOf("Inicio") }
+    var page by rememberSaveable { mutableStateOf("Inicio") }
     var editing by remember { mutableStateOf<Entry?>(null) }
     var showForm by remember { mutableStateOf(false) }
     var onboarding by remember { mutableStateOf(false) }
@@ -93,7 +98,7 @@ private fun AgendaApp(dao: EntryDao) {
     var monthOffset by remember { mutableIntStateOf(0) }
     val snack = remember { SnackbarHostState() }
 
-    LaunchedEffect(name) { if (name.isBlank()) onboarding = true }
+    LaunchedEffect(prefs) { if (prefs != null) onboarding = name.isBlank() }
     LaunchedEffect(toast) { if (toast.isNotBlank()) { snack.showSnackbar(toast); toast = "" } }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch { runCatching {
@@ -121,10 +126,10 @@ private fun AgendaApp(dao: EntryDao) {
     }
 
     MaterialTheme(colorScheme = lightColorScheme(primary = colors[2], secondary = colors[2], background = colors[0], surface = colors[3])) {
-        BoxWithConstraints(Modifier.fillMaxSize().background(colors[0])) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(colors[0]).safeDrawingPadding()) {
             val wide = maxWidth >= 700.dp
             Row(Modifier.fillMaxSize()) {
-                if (wide) NavigationRail(containerColor = colors[0], header = {
+                if (wide) NavigationRail(modifier = Modifier.verticalScroll(rememberScrollState()), containerColor = colors[0], header = {
                     Text("✿", fontSize = 30.sp, color = colors[2], modifier = Modifier.padding(14.dp))
                 }) { sections.forEachIndexed { i, s -> NavigationRailItem(selected = page == s, onClick = { page = s }, icon = { Icon(icons[i], null) }, label = { Text(s) }, alwaysShowLabel = true) } }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
@@ -136,8 +141,8 @@ private fun AgendaApp(dao: EntryDao) {
                         if (page != "Ajustes") IconButton(onClick = { page = "Ajustes" }) { Icon(Icons.Default.Settings, "Ajustes") }
                     }
                     HorizontalDivider(color = colors[1])
-                    when (page) {
-                        "Inicio" -> HomePage(all, name, user, colors, goal, { page = it }, { showForm = true; editing = null })
+                    Box(Modifier.weight(1f).fillMaxWidth()) { when (page) {
+                        "Inicio" -> HomePage(all, name, user, colors, goal, { page = it }, { page = "Tareas"; showForm = true; editing = null })
                         "Calendario" -> CalendarPage(all, colors, calendarMode, { calendarMode = it }, monthOffset, { monthOffset += it }, { showForm = true; editing = null })
                         "Ajustes" -> SettingsPage(name, user, theme, goal, colors, onSave = { n, u, t, g -> scope.launch { context.prefs.edit { it[pAgenda] = n; it[pUser] = u; it[pTheme] = t; it[pWaterGoal] = g } }; toast = "Preferencias guardadas." }, onExport = { export.launch("agenda-lavanda-${LocalDate.now()}.json") }, onImport = { import.launch(arrayOf("application/json", "text/*")) })
                         else -> EntriesPage(page, all.filter { it.section == page }, colors, goal, { showForm = true; editing = null }, { editing = it; showForm = true }, { entry -> scope.launch { dao.put(entry.copy(done = !entry.done, updatedAt = System.currentTimeMillis())) } }, { entry -> scope.launch { dao.delete(entry.id) } }, { label -> scope.launch { dao.put(Entry(section = page, title = label, date = if (page == "Diario") LocalDate.now().toString() else "")) } }, { amount ->
@@ -146,6 +151,7 @@ private fun AgendaApp(dao: EntryDao) {
                                 dao.put((current ?: Entry(section = "Diario", title = "Agua", date = LocalDate.now().toString())).copy(body = amount.coerceAtLeast(0).toString(), updatedAt = System.currentTimeMillis()))
                             }
                         })
+                    }
                     }
                     if (!wide) NavigationBar(containerColor = colors[3]) {
                         sections.take(4).forEachIndexed { i, s -> NavigationBarItem(selected = page == s, onClick = { page = s }, icon = { Icon(icons[i], null) }, label = { Text(s, fontSize = 10.sp) }) }
@@ -182,7 +188,7 @@ private fun HomePage(all: List<Entry>, name: String, user: String, c: List<Color
         if (todayItems.isEmpty()) item { EmptyCard("No tienes nada pendiente para hoy. Puedes agregar una tarea o disfrutar el espacio libre.", c, add) }
         else items(todayItems.take(5)) { EntryRow(it, c, { navigate(it.section) }, {}) }
         item { SectionHeader("Tu espacio", "Agregar") { add() } }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Tareas", "Notas", "Diario", "Hábitos").forEach { s -> OutlinedButton(onClick = { navigate(s) }, shape = RoundedCornerShape(15.dp)) { Text(s) } }
         } }
     }
@@ -207,7 +213,7 @@ private fun CalendarPage(all: List<Entry>, c: List<Color>, mode: String, setMode
             IconButton(onClick = { shift(1) }) { Icon(Icons.Default.ChevronRight, "Siguiente") }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Mes", "Semana", "Día").forEach { FilterChip(selected = mode == it, onClick = { setMode(it) }, label = { Text(it) }) } }
-        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(days) { day ->
                 val entries = all.filter { it.date == day.toString() }
                 Card(colors = CardDefaults.cardColors(containerColor = if (day == today) c[1] else c[3]), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
@@ -227,7 +233,12 @@ private fun CalendarPage(all: List<Entry>, c: List<Color>, mode: String, setMode
 private fun EntriesPage(page: String, entries: List<Entry>, c: List<Color>, goal: Int, add: () -> Unit, edit: (Entry) -> Unit, toggle: (Entry) -> Unit, delete: (Entry) -> Unit, quickAdd: (String) -> Unit, setWater: (Int) -> Unit) {
     val today = LocalDate.now().toString()
     val water = entries.lastOrNull { it.title == "Agua" && it.date == today }?.body?.toIntOrNull() ?: 0
+    var query by rememberSaveable(page) { mutableStateOf("") }
+    var pendingDelete by remember { mutableStateOf<Entry?>(null) }
+    if (pendingDelete != null) AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("¿Eliminar este elemento?") }, text = { Text("Esta acción no se puede deshacer. Exporta una copia para conservar tus datos.") }, confirmButton = { TextButton(onClick = { pendingDelete?.let(delete); pendingDelete = null }) { Text("Eliminar") } }, dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancelar") } })
     Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(query, { query = it }, label = { Text("Buscar en $page") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+        if (page in listOf("Notas", "Cuadernos", "Diario")) Button(onClick = add, modifier = Modifier.padding(horizontal = 16.dp)) { Icon(Icons.Default.Draw, null); Text("  Nueva página · texto y lápiz") }
         if (page == "Diario") {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Skincare mañana", "Skincare noche").forEach { label ->
@@ -248,7 +259,7 @@ private fun EntriesPage(page: String, entries: List<Entry>, c: List<Color>, goal
         if (page == "Hábitos") Text("Marca tus hábitos al completarlos", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = Color.Gray)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (entries.isEmpty()) item { EmptyCard(emptyMessage(page), c, add) }
-            items(entries.filterNot { page == "Diario" && it.title == "Agua" }) { entry -> EntryRow(entry, c, { edit(entry) }, { toggle(entry) }, { delete(entry) }) }
+            items(entries.filterNot { page == "Diario" && it.title == "Agua" }.filter { query.isBlank() || it.title.contains(query, true) || it.body.contains(query, true) }, key = { it.id }) { entry -> EntryRow(entry, c, { edit(entry) }, { toggle(entry) }, { pendingDelete = entry }) }
         }
         FloatingActionButton(onClick = add, modifier = Modifier.align(Alignment.End).padding(18.dp), containerColor = c[2], contentColor = Color.White) { Icon(Icons.Default.Add, "Agregar") }
     }
@@ -273,14 +284,15 @@ private fun EntryRow(entry: Entry, c: List<Color>, edit: () -> Unit, toggle: () 
 
 @Composable
 private fun EntryDialog(section: String, initial: Entry?, c: List<Color>, onDismiss: () -> Unit, onSave: (Entry) -> Unit) {
-    var title by remember(initial, section) { mutableStateOf(initial?.title ?: defaultTitle(section)) }
-    var body by remember(initial) { mutableStateOf(initial?.body?.substringAfter("\n", "")?.takeIf { initial.body.startsWith("[MANUSCRITO]") } ?: initial?.body.orEmpty()) }
-    var date by remember(initial) { mutableStateOf(initial?.date ?: if (section == "Diario" || section == "Calendario" || section == "Tareas") LocalDate.now().toString() else "") }
-    var done by remember(initial) { mutableStateOf(initial?.done ?: false) }
+    var title by rememberSaveable(initial?.id, section) { mutableStateOf(initial?.title ?: defaultTitle(section)) }
+    var body by rememberSaveable(initial?.id) { mutableStateOf(initial?.body?.substringAfter("\n", "")?.takeIf { initial.body.startsWith("[MANUSCRITO]") } ?: initial?.body.orEmpty()) }
+    var date by rememberSaveable(initial?.id) { mutableStateOf(initial?.date ?: if (section == "Diario" || section == "Calendario" || section == "Tareas") LocalDate.now().toString() else "") }
+    var done by rememberSaveable(initial?.id) { mutableStateOf(initial?.done ?: false) }
     var ink by remember { mutableStateOf(false) }
     var strokes by remember(initial) { mutableStateOf(parseStrokes(initial?.body.orEmpty())) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (initial == null) "Nuevo ${section.lowercase()}" else "Editar") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            if (date.isNotBlank() && runCatching { LocalDate.parse(date) }.isFailure) Text("Usa una fecha válida: AAAA-MM-DD", color = MaterialTheme.colorScheme.error)
             InputField(title, { title = it }, "Título")
             if (section in listOf("Tareas", "Calendario", "Diario", "Hábitos", "Metas")) InputField(date, { date = it }, "Fecha (AAAA-MM-DD)")
             if (section == "Diario" && initial == null && title == "Mi diario de hoy") {
@@ -291,10 +303,10 @@ private fun EntryDialog(section: String, initial: Entry?, c: List<Color>, onDism
             if (section == "Diario" && title == "Skincare mañana" || section == "Diario" && title == "Skincare noche") {
                 InputField(body, { body = it }, "Pasos o productos de tu rutina", 3)
             } else if (title != "Agua") InputField(body, { body = it }, if (section == "Notas") "Escribe tu nota o reflexión…" else "Detalles…", 5)
-            if (section == "Notas") { Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { OutlinedButton(onClick = { ink = true }) { Icon(Icons.Default.Draw, null); Text(" Escribir a mano") }; if (strokes.isNotEmpty()) Text("Dibujo guardado", color = c[2], fontSize = 12.sp) } }
+            if (section in listOf("Notas", "Cuadernos", "Diario")) { Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { OutlinedButton(onClick = { ink = true }) { Icon(Icons.Default.Draw, null); Text(" Escribir a mano") }; if (strokes.isNotEmpty()) Text("Dibujo guardado", color = c[2], fontSize = 12.sp) } }
             if (section in listOf("Tareas", "Hábitos") || title.startsWith("Skincare")) Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(done, { done = it }); Text("Completado") }
         }
-    }, confirmButton = { Button(onClick = { if (title.isNotBlank()) onSave((initial ?: Entry(section = section, title = title)).copy(section = section, title = title.trim(), body = if (section == "Notas" && strokes.isNotEmpty()) inkToJson(strokes) + if (body.isNotBlank()) "\n" + body else "" else body, date = date.trim(), done = done, updatedAt = System.currentTimeMillis())) }, colors = ButtonDefaults.buttonColors(containerColor = c[2])) { Text("Guardar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
+    }, confirmButton = { Button(onClick = { if (title.isNotBlank() && (date.isBlank() || runCatching { LocalDate.parse(date) }.isSuccess)) onSave((initial ?: Entry(section = section, title = title)).copy(section = section, title = title.trim(), body = if (strokes.isNotEmpty()) inkToJson(strokes) + if (body.isNotBlank()) "\n" + body else "" else body, date = date.trim(), done = done, updatedAt = System.currentTimeMillis())) }, colors = ButtonDefaults.buttonColors(containerColor = c[2])) { Text("Guardar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
     if (ink) InkDialog(c, strokes, { strokes = it }, { ink = false })
 }
 
@@ -302,17 +314,33 @@ private fun EntryDialog(section: String, initial: Entry?, c: List<Color>, onDism
 private fun InkDialog(c: List<Color>, initial: List<List<Offset>>, onDone: (List<List<Offset>>) -> Unit, close: () -> Unit) {
     var strokes by remember { mutableStateOf(initial) }
     var active by remember { mutableStateOf(listOf<Offset>()) }
-    AlertDialog(onDismissRequest = close, title = { Text("Nota manuscrita") }, text = {
-        Column {
-            Text("Dibuja con el dedo o con un lápiz táctil.", color = Color.Gray, fontSize = 13.sp)
-            Canvas(Modifier.fillMaxWidth().height(300.dp).padding(top = 10.dp).background(Color.White, RoundedCornerShape(12.dp)).pointerInput(Unit) {
-                detectDragGestures(onDragStart = { active = listOf(it) }, onDrag = { change, _ -> active = active + change.position }, onDragEnd = { if (active.isNotEmpty()) strokes = strokes + listOf(active); active = emptyList() })
-            }) {
-                (strokes + listOf(active)).forEach { pts -> if (pts.size > 1) { val p = Path().apply { moveTo(pts.first().x, pts.first().y); pts.drop(1).forEach { lineTo(it.x, it.y) } }; drawPath(p, c[2], style = Stroke(width = 4f, cap = StrokeCap.Round)) } }
+    var redo by remember { mutableStateOf(listOf<List<Offset>>()) }
+    var finger by remember { mutableStateOf(true) }
+    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = c[0]) {
+            Column(Modifier.fillMaxSize().padding(12.dp)) {
+                Text("Página manuscrita", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = c[2])
+                Text("Escribe con lápiz o dedo. Pulsa Listo y después Guardar en la página.", fontSize = 13.sp)
+                Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { if (strokes.isNotEmpty()) { redo = redo + listOf(strokes.last()); strokes = strokes.dropLast(1) } }, enabled = strokes.isNotEmpty()) { Text("Deshacer") }
+                    TextButton(onClick = { if (redo.isNotEmpty()) { strokes = strokes + listOf(redo.last()); redo = redo.dropLast(1) } }, enabled = redo.isNotEmpty()) { Text("Rehacer") }
+                    FilterChip(selected = !finger, onClick = { finger = !finger }, label = { Text("Solo lápiz") })
+                    Button(onClick = { onDone(strokes); close() }) { Text("Listo") }
+                    TextButton(onClick = close) { Text("Cancelar") }
+                }
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctx -> InkSurface(ctx) },
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    update = { view ->
+                        view.lines = strokes
+                        view.allowFinger = finger
+                        view.onStroke = { line -> strokes = strokes + listOf(line); redo = emptyList() }
+                        view.invalidate()
+                    }
+                )
             }
-            TextButton(onClick = { strokes = emptyList(); active = emptyList() }) { Text("Borrar dibujo") }
         }
-    }, confirmButton = { Button(onClick = { onDone(strokes); close() }, colors = ButtonDefaults.buttonColors(containerColor = c[2])) { Text("Guardar dibujo") } }, dismissButton = { TextButton(onClick = close) { Text("Cancelar") } })
+    }
 }
 
 @Composable
@@ -334,7 +362,7 @@ private fun SettingsPage(name: String, user: String, theme: Int, goal: Int, c: L
         item { OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileDownload, null); Text("  Importar copia JSON") } }
         item { Text("Privacidad", fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = c[2]) }
         item { Text("Tus datos se guardan en este dispositivo. La aplicación no requiere cuenta, conexión a internet ni permisos de red.", color = Color.Gray) }
-        item { Text("Agenda Lavanda · versión 1.0.0", color = Color.Gray, fontSize = 12.sp) }
+        item { Text("Agenda Lavanda · versión 1.1.0", color = Color.Gray, fontSize = 12.sp) }
     }
 }
 

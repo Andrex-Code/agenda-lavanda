@@ -4,6 +4,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class BackupTest {
+    @Test fun preservesLongHandwritingPayload() {
+        val content = "[MANUSCRITO]" + "x".repeat(120_000)
+        val source = Entry(section = "Notas", title = "Lápiz", body = content)
+        assertEquals(content, Backup.decode(Backup.encode(listOf(source), "Agenda", "")).entries.single().body)
+    }
     @Test fun backupRoundTripsDataAndProfile() {
         val source = listOf(Entry(section = "Diario", title = "Un día bonito", body = "😊\nReflexión", date = "2026-10-31", done = true))
         val restored = Backup.decode(Backup.encode(source, "Mi agenda", "Ana"))
