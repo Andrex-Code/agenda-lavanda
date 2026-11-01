@@ -147,7 +147,7 @@ fun AgendaApp(dao:EntryDao) {
                     }
                 }
             }
-            SnackbarHost(snack,Modifier.align(Alignment.BottomCenter).padding(bottom=if(wide) 0.dp else 80.dp))
+            SnackbarHost(snack,Modifier.align(Alignment.BottomCenter).padding(start=if(wide) 164.dp else 0.dp,bottom=if(wide) 0.dp else 80.dp))
             if(menu) AlertDialog(onDismissRequest={menu=false},title={Text("Tu agenda")},text={
                 Column(Modifier.verticalScroll(rememberScrollState())) {sections.forEach{s->TextButton(onClick={page=s;menu=false},modifier=Modifier.fillMaxWidth()){Text(s)}}}
             },confirmButton={TextButton(onClick={menu=false}){Text("Cerrar")}})
