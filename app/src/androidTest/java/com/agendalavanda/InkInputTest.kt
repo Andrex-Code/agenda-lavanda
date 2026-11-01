@@ -15,10 +15,12 @@ class InkInputTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             val view=InkCanvas(context);FrameLayout(context).addView(view);view.layout(0,0,1000,1414)
-            val bitmap=android.graphics.Bitmap.createBitmap(1000,1414,android.graphics.Bitmap.Config.ARGB_8888)
+            val bitmap=android.graphics.Bitmap.createBitmap(1500,1414,android.graphics.Bitmap.Config.ARGB_8888)
             try {
+                bitmap.eraseColor(android.graphics.Color.RED)
                 view.document=InkDocument(paper="blank",strokes=listOf(InkStroke(listOf(InkPoint(100f,100f),InkPoint(500f,500f)),0xff123456.toInt(),8f)))
                 view.draw(android.graphics.Canvas(bitmap));assertEquals(0xff123456.toInt(),bitmap.getPixel(300,300))
+                assertEquals("El lienzo no debe pintar fuera de sus límites",android.graphics.Color.RED,bitmap.getPixel(1200,300))
                 view.document=view.document.copy(strokes=emptyList())
                 view.draw(android.graphics.Canvas(bitmap));assertEquals(android.graphics.Color.WHITE,bitmap.getPixel(300,300))
             } finally {bitmap.recycle()}
