@@ -48,3 +48,19 @@ Navegación lateral más amplia y sin duplicar Ajustes en la cabecera de tablet.
 Las preferencias de visibilidad y recordatorio se guardan de inmediato; los campos de nombre/tema/meta requieren Guardar preferencias. Las copias anteriores usan los valores predeterminados al no incluir estas nuevas preferencias. La guía es propia del dispositivo. El ánimo sigue siendo parte del texto; no se anuncian estadísticas de ánimo.
 
 El nombre comercial y del lanzador Android es **Mis Días**. El nombre personal de la agenda sigue siendo configurable. Se conserva el identificador de aplicación y el formato de copias de Agenda Lavanda para mantener la compatibilidad de actualizaciones y datos.
+
+## Agenda PDF interactiva
+
+Descarga directa: https://github.com/Andrex-Code/agenda-lavanda/releases/download/v1.3.0-test/Mis-Dias-agenda-interactiva.pdf
+
+Edición sin año fijo de 535 páginas: 12 meses con cuadrícula rellenable, 72 semanas sin fechar, 366 días (febrero 29 opcional), tareas, notas, cuadernos, diario, hábitos, metas y perfil. Pestañas y enlaces internos, 7387 campos/casillas y 8638 enlaces verificados. Las fechas se colocan manualmente en el calendario mensual. Los campos no se sincronizan entre páginas ni con la APK; el PDF no realiza cálculos ni envía notificaciones. Para lápiz se usa la herramienta de anotación del lector. La compatibilidad y el guardado dependen del lector PDF. Conserva una copia limpia para reutilizar la agenda cada año.
+
+Fuentes reproducibles en tools/pdf. Con Python y Poppler disponibles:
+
+```text
+python -m pip install reportlab pypdf pillow
+python tools/pdf/build_planner.py
+python tools/pdf/validate_planner.py
+```
+
+El PDF se genera en output/pdf; la validación y las imágenes de revisión, en tmp/pdfs. La validación revisa todos los destinos, límites de campos, árbol AcroForm y widgets; guarda y reabre 7 valores de ejemplo y renderiza 20 páginas de muestra. Las muestras de prueba quedan en tmp, nunca en el PDF de distribución. Usa Arial de Windows si está disponible, o Vera incluida en ReportLab en otros sistemas.

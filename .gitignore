@@ -4,3 +4,7 @@
 local.properties
 *.jks
 *.keystore
+
+/output/
+/tmp/
+__pycache__/
