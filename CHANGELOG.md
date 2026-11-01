@@ -1,13 +1,16 @@
-# 1.2.0 — Páginas y protección del trabajo
+# 1.2.1 — Revisión de estabilidad y dibujo
 
-- Borradores persistentes y recuperación, papelera y cuadernos con páginas.
-- Calendario en cuadrícula, eventos con fecha/hora y repetición.
-- Hábitos por día con historial y rachas; metas con porcentaje.
-- Lápiz con colores, grosor, borrador, presión del dispositivo, zoom y movimiento de hoja.
-- Plantillas, vista previa, PDF y PNG.
-- Copias v2 con referencias y preferencias; importación de v1 y copia previa local.
-- Migración Room sin borrar registros anteriores.
+- Cierre seguro de borradores: si falla la escritura, el editor informa y conserva la página abierta.
+- No se guarda una página vacía mientras se está cargando su contenido.
+- Copias coherentes de registros y borradores; validación de referencias y recuperación de la copia local previa.
+- Restauración de una página sin recuperar otras páginas eliminadas del cuaderno.
+- Contadores y rutinas protegidos frente a toques rápidos simultáneos.
+- El modo Solo lápiz conserva el trazo cuando aparece un contacto de palma.
+- Caché de la hoja manuscrita para evitar repintar todos los trazos con cada movimiento.
+- Recorte del lienzo y las vistas previas para no tapar la barra de herramientas.
+- Cierre del teclado al guardar/cerrar y navegación adaptada al espacio del teclado.
+- Etiquetas de hábitos y rutinas pulsables, icono propio y exclusión explícita de copias automáticas de Android.
+- Pruebas automáticas en teléfono Android 11 y tablet Android 15; ver VALIDATION.md para los resultados exactos.
 
-Versión de prueba. Exporta una copia antes de actualizar. No incluye alarmas, OCR ni sincronización. La calidad del lápiz debe validarse en la tableta real.
-
-Validación: compilación y 11 pruebas JVM aprobadas. La instrumentación no pudo completarse por bloqueo del sistema del emulador; ver VALIDATION.md.
+APK de prueba firmado con la misma clave de las versiones anteriores. Exporta una copia antes de actualizar. Sigue pendiente la validación con lápiz físico; no incluye alarmas ni reconocimiento de escritura.
+- Los avisos de guardado permanecen fuera de la navegación inferior y lateral.
