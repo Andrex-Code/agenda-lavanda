@@ -79,7 +79,7 @@ fun AgendaApp(dao:EntryDao) {
     fun action(block:suspend ()->Unit) { scope.launch { try {block()} catch(e:Exception) {if(e is CancellationException) throw e;snack.showSnackbar(e.message ?: "No se pudo completar. Intenta de nuevo.")} } }
     fun open(e:Entry,d:Draft?=null) { editorId++;resumed=d;entry=e }
     fun create(section:String,date:String="") = Entry(section=section,title="",date=date)
-    fun toggle(e:Entry) { action { dao.put(if(e.section=="Hábitos") e.toggleHabit(today) else e.copy(done=!e.done,updatedAt=System.currentTimeMillis())) } }
+    fun toggle(e:Entry) { action { dao.toggleEntry(e.id,today) } }
     val safety=remember { File(ctx.filesDir,"before-import.json") }
     suspend fun snapshot():String { val (saved,pending)=dao.snapshot();return withContext(Dispatchers.Default){Backup.encode(saved,name,user,theme,goal,pending)} }
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri:Uri? ->
@@ -125,7 +125,7 @@ fun AgendaApp(dao:EntryDao) {
                             "Cuadernos" -> NotebooksScreen(all,{open(it)},{id->open(create("Notas").copy(notebookId=id))},{open(create("Cuadernos"))},{e->action{dao.trash(e.id,System.currentTimeMillis());snack.showSnackbar("Cuaderno y páginas enviados a Papelera.")}})
                             "Hábitos" -> HabitsScreen(all.filter{it.section=="Hábitos"},today,{open(create("Hábitos"))},{open(it)},{toggle(it)},{e->action{dao.trash(e.id,System.currentTimeMillis())}})
                             "Diario" -> DiaryScreen(all.filter{it.section=="Diario"},today,goal,{open(it)}, {day,delta->action{dao.changeWater(day.toString(),delta)}},
-                                {day,label->action{val found=all.firstOrNull{it.section=="Diario"&&it.title==label&&it.date==day.toString()};dao.put(found?.copy(done=!found.done) ?: Entry(section="Diario",title=label,date=day.toString(),done=true))}},
+                                {day,label->action{dao.toggleRoutine(day.toString(),label)}},
                                 {e->action{dao.trash(e.id,System.currentTimeMillis())}})
                             "Borradores" -> DraftsScreen(drafts,{d->action{open(EntryCodec.read(JSONObject(d.payload),validate=false),d)}},{d->action{dao.deleteDraft(d.key)}})
                             "Papelera" -> TrashScreen(records.filter{it.deletedAt>0},{e->action{dao.restoreWithParent(e)}},{e->action{dao.permanentlyDelete(e.id)}})

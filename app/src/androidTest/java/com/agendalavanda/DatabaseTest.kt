@@ -18,6 +18,10 @@ class DatabaseTest {
         coroutineScope { (1..10).map { async {dao.changeWater("2026-11-01",1)} }.awaitAll() }
         assertEquals(1,dao.all().size)
         assertEquals("10",dao.all().single().body)
+        coroutineScope { (1..10).map { async {dao.toggleRoutine("2026-11-01","Skincare mañana")} }.awaitAll() }
+        val routines=dao.all().filter {it.title=="Skincare mañana"}
+        assertEquals(1,routines.size)
+        assertFalse(routines.single().done)
         val session=DraftSession(dao,"new:Notas:0")
         db.close()
         session.update(Entry(section="Notas",title="Debe conservarse"))

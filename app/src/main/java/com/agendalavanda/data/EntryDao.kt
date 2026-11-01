@@ -3,6 +3,15 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 @Dao
 abstract class EntryDao {
+    @Transaction open suspend fun toggleEntry(id:Long, day:java.time.LocalDate) {
+        val current=find(id) ?: return
+        if(current.deletedAt!=0L) return
+        put(if(current.section=="Hábitos") current.toggleHabit(day) else current.copy(done=!current.done,updatedAt=System.currentTimeMillis()))
+    }
+    @Transaction open suspend fun toggleRoutine(day:String,label:String) {
+        val current=all().firstOrNull { it.section=="Diario" && it.date==day && it.title==label && it.deletedAt==0L }
+        put(current?.copy(done=!current.done,updatedAt=System.currentTimeMillis()) ?: Entry(section="Diario",title=label,date=day,done=true))
+    }
     @Query("SELECT * FROM entries ORDER BY updatedAt DESC") abstract fun observeAll(): Flow<List<Entry>>
     @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun put(entry: Entry): Long
     @Query("SELECT * FROM entries ORDER BY id") abstract suspend fun all(): List<Entry>
