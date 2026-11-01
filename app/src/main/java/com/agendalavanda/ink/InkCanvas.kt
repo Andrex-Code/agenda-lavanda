@@ -40,6 +40,10 @@ class InkCanvas(context: Context): View(context) {
     private var lastX=0f
     private var lastY=0f
     private var multi=false
+    private var pageBitmap:Bitmap?=null
+    private var cachedStrokes:List<InkStroke>?=null
+    private var cachedPaper:String?=null
+    private var cachedRemoved:Set<Int> = emptySet()
     private val fit get()=min(width/PagePainter.WIDTH,height/PagePainter.HEIGHT).coerceAtLeast(.01f)
     private val scale get()=fit*zoom
     private val originX get()=(width-PagePainter.WIDTH*fit)/2+dx
@@ -57,7 +61,12 @@ class InkCanvas(context: Context): View(context) {
     override fun onDraw(canvas:Canvas) {
         canvas.drawColor(0xffe9e4ef.toInt());canvas.save();canvas.translate(originX,originY);canvas.scale(scale,scale)
         canvas.clipRect(0f,0f,PagePainter.WIDTH,PagePainter.HEIGHT)
-        PagePainter.draw(canvas,document,removed)
+        val bitmap=pageBitmap ?: Bitmap.createBitmap(1000,1414,Bitmap.Config.ARGB_8888).also {pageBitmap=it}
+        if(cachedStrokes !== document.strokes || cachedPaper!=document.paper || cachedRemoved!=removed) {
+            PagePainter.draw(Canvas(bitmap),document,removed)
+            cachedStrokes=document.strokes;cachedPaper=document.paper;cachedRemoved=removed
+        }
+        canvas.drawBitmap(bitmap,0f,0f,null)
         if(mode=="pen" && points.isNotEmpty()) PagePainter.drawStroke(canvas,InkStroke(points,penColor,penWidth))
         canvas.restore()
     }
@@ -98,5 +107,9 @@ class InkCanvas(context: Context): View(context) {
         invalidate();return true
     }
     override fun performClick():Boolean { super.performClick();return true }
+    override fun onDetachedFromWindow() {
+        pageBitmap?.recycle();pageBitmap=null;cachedStrokes=null;cachedPaper=null
+        super.onDetachedFromWindow()
+    }
 }
 
