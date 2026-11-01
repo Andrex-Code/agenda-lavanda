@@ -21,7 +21,11 @@ abstract class EntryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun insertAll(entries: List<Entry>)
     @Query("UPDATE entries SET deletedAt = :timestamp WHERE id = :id OR notebookId = :id") abstract suspend fun trash(id: Long, timestamp: Long)
     @Query("UPDATE entries SET deletedAt = 0 WHERE id = :id OR notebookId = :id") abstract suspend fun restore(id: Long)
-    @Transaction open suspend fun restoreWithParent(entry: Entry) { entry.notebookId?.let { restore(it) }; restore(entry.id) }
+    @Query("UPDATE entries SET deletedAt = 0 WHERE id = :id") abstract suspend fun restoreOne(id:Long)
+    @Transaction open suspend fun restoreWithParent(entry: Entry) {
+        if(entry.section=="Cuadernos") restore(entry.id)
+        else { entry.notebookId?.let { restoreOne(it) };restoreOne(entry.id) }
+    }
     @Query("DELETE FROM entries WHERE id = :id OR notebookId = :id") abstract suspend fun deleteTree(id: Long)
     @Transaction open suspend fun permanentlyDelete(id: Long) {
         all().filter { it.id == id || it.notebookId == id }.forEach { deleteDraft("entry:${it.id}") }
