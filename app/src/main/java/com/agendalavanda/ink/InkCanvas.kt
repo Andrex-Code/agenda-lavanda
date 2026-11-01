@@ -59,6 +59,7 @@ class InkCanvas(context: Context): View(context) {
     })
     fun resetPage(){ zoom=1f;dx=0f;dy=0f;invalidate() }
     override fun onDraw(canvas:Canvas) {
+        canvas.save();canvas.clipRect(0,0,width,height)
         canvas.drawColor(0xffe9e4ef.toInt());canvas.save();canvas.translate(originX,originY);canvas.scale(scale,scale)
         canvas.clipRect(0f,0f,PagePainter.WIDTH,PagePainter.HEIGHT)
         val bitmap=pageBitmap ?: Bitmap.createBitmap(1000,1414,Bitmap.Config.ARGB_8888).also {pageBitmap=it}
@@ -68,7 +69,7 @@ class InkCanvas(context: Context): View(context) {
         }
         canvas.drawBitmap(bitmap,0f,0f,null)
         if(mode=="pen" && points.isNotEmpty()) PagePainter.drawStroke(canvas,InkStroke(points,penColor,penWidth))
-        canvas.restore()
+        canvas.restore();canvas.restore()
     }
     private fun point(x:Float,y:Float,pressure:Float)=InkPoint(((x-originX)/scale).coerceIn(0f,PagePainter.WIDTH),
         ((y-originY)/scale).coerceIn(0f,PagePainter.HEIGHT),pressure.coerceIn(.3f,1.5f))
