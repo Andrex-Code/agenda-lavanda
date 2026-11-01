@@ -5,7 +5,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Serializes draft writes and final save, so an older autosave cannot resurrect a saved draft. */
-class DraftSession(private val dao:EntryDao,val key:String) {
+class DraftSession(private val dao:EntryDao,val key:String,private val writeDraft:suspend (Draft)->Unit = {dao.putDraft(it)}) {
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
     private val lock=Mutex()
     private var pending:Job?=null
@@ -18,7 +18,7 @@ class DraftSession(private val dao:EntryDao,val key:String) {
     }
     private suspend fun write(failOnError:Boolean=false)=lock.withLock {
         if(!closed) latest?.let { entry ->
-            try { dao.putDraft(Draft(key,EntryCodec.json(entry).toString()));status.value="Borrador guardado en este dispositivo" }
+            try { writeDraft(Draft(key,EntryCodec.json(entry).toString()));status.value="Borrador guardado en este dispositivo" }
             catch(e:Exception) { if(e is CancellationException) throw e;status.value="No se pudo guardar el borrador. Intenta Guardar.";if(failOnError) throw e }
         }
     }

@@ -20,8 +20,8 @@ class FlowTest {
         if(compose.onAllNodesWithText("Empezar").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("Empezar").performClick()
         compose.onAllNodesWithText("Notas").onFirst().performClick()
         compose.onNodeWithText("✎  Nueva página · texto y lápiz").performClick()
-        compose.waitUntil(30000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("Título").performTextInput(noteTitle)
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("entryTitle").performTextInput(noteTitle)
         compose.onNodeWithText("✎  Escribir con lápiz · 0 trazos").performScrollTo().performClick()
         compose.onNodeWithTag("inkCanvas").performTouchInput { swipe(Offset(100f,150f),Offset(230f,230f),500) }
         compose.onNodeWithText("Volver a la nota").performClick()
@@ -31,14 +31,14 @@ class FlowTest {
         val saved=runBlocking{dao.all().first{it.title==noteTitle}}
         assertTrue(InkDocument.decode(saved.body).strokes.isNotEmpty())
         compose.onNodeWithText("✎  Nueva página · texto y lápiz").performClick()
-        compose.waitUntil(30000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("Título").performTextInput(draftTitle)
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("entryTitle").performTextInput(draftTitle)
         compose.onNodeWithText("Cerrar").performClick()
         compose.onNodeWithContentDescription("Borradores").performClick()
         compose.waitUntil(30000){compose.onAllNodesWithText(draftTitle).fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText(draftTitle).performClick()
-        compose.waitUntil(30000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText(draftTitle).assertExists()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("entryTitle").assertTextContains(draftTitle)
     }
 }
 

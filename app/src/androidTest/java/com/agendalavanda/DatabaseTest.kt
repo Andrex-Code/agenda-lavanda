@@ -22,7 +22,7 @@ class DatabaseTest {
         val routines=dao.all().filter {it.title=="Skincare mañana"}
         assertEquals(1,routines.size)
         assertFalse(routines.single().done)
-        val session=DraftSession(dao,"new:Notas:0")
+        val session=DraftSession(dao,"new:Notas:0",writeDraft={throw java.io.IOException("Fallo de almacenamiento simulado")})
         db.close()
         session.update(Entry(section="Notas",title="Debe conservarse"))
         var failed=false

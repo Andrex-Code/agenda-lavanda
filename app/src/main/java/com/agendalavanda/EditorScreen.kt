@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -94,7 +95,7 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
                     if(error.isNotEmpty()) Text(error,color=MaterialTheme.colorScheme.primary)
                     if(ready) {
                         Text(status,style=MaterialTheme.typography.bodySmall)
-                        OutlinedTextField(entry.title,{entry=entry.copy(title=it)},label={Text("Título")},modifier=Modifier.fillMaxWidth(),singleLine=true)
+                        OutlinedTextField(entry.title,{entry=entry.copy(title=it)},label={Text("Título")},modifier=Modifier.fillMaxWidth().testTag("entryTitle"),singleLine=true)
                         if(entry.section in listOf("Calendario","Tareas","Diario","Metas")) {
                             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick={
