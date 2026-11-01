@@ -7,7 +7,7 @@ import kotlin.math.*
 object PagePainter {
     const val WIDTH=1000f
     const val HEIGHT=1414f
-    fun draw(canvas: Canvas, document: InkDocument) {
+    fun draw(canvas: Canvas, document: InkDocument, excluded:Set<Int> = emptySet()) {
         canvas.drawColor(Color.WHITE)
         val grid=Paint().apply { color=0xffe5dfef.toInt(); strokeWidth=1f }
         when(document.paper) {
@@ -16,12 +16,12 @@ object PagePainter {
                 n=24f; while(n<WIDTH) { canvas.drawLine(n,0f,n,HEIGHT,grid); n+=24 } }
             "dots" -> { var y=24f; while(y<HEIGHT) { var x=24f; while(x<WIDTH) { canvas.drawCircle(x,y,1.3f,grid); x+=24 }; y+=24 } }
         }
-        document.strokes.forEach { drawStroke(canvas,it) }
+        document.strokes.forEachIndexed { index,stroke -> if(index !in excluded) drawStroke(canvas,stroke) }
     }
     fun drawStroke(canvas: Canvas, stroke: InkStroke) {
         val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=stroke.color; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND }
         stroke.points.firstOrNull()?.let { canvas.drawCircle(it.x,it.y,stroke.width*it.pressure/2,pen) }
-        stroke.points.zipWithNext().forEach { (a,b) -> pen.strokeWidth=stroke.width*(a.pressure+b.pressure)/2; canvas.drawLine(a.x,a.y,b.x,b.y,pen) }
+        for(i in 1 until stroke.points.size) { val a=stroke.points[i-1];val b=stroke.points[i];pen.strokeWidth=stroke.width*(a.pressure+b.pressure)/2;canvas.drawLine(a.x,a.y,b.x,b.y,pen) }
     }
 }
 class InkCanvas(context: Context): View(context) {
@@ -57,7 +57,7 @@ class InkCanvas(context: Context): View(context) {
     override fun onDraw(canvas:Canvas) {
         canvas.drawColor(0xffe9e4ef.toInt());canvas.save();canvas.translate(originX,originY);canvas.scale(scale,scale)
         canvas.clipRect(0f,0f,PagePainter.WIDTH,PagePainter.HEIGHT)
-        PagePainter.draw(canvas,document.copy(strokes=document.strokes.filterIndexed { i,_ -> i !in removed }))
+        PagePainter.draw(canvas,document,removed)
         if(mode=="pen" && points.isNotEmpty()) PagePainter.drawStroke(canvas,InkStroke(points,penColor,penWidth))
         canvas.restore()
     }

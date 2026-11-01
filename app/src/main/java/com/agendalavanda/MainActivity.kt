@@ -58,7 +58,8 @@ fun AgendaApp(dao:EntryDao) {
     val scope=rememberCoroutineScope()
     val records by dao.observeAll().collectAsStateWithLifecycle(emptyList())
     val drafts by dao.observeDrafts().collectAsStateWithLifecycle(emptyList())
-    val prefs by ctx.prefs.data.map { it as Preferences? }.collectAsStateWithLifecycle(null)
+    val preferenceFlow=remember(ctx){ctx.prefs.data.map { it as Preferences? }}
+    val prefs by preferenceFlow.collectAsStateWithLifecycle(null)
     val all=records.filter { it.deletedAt==0L }
     val name=prefs?.get(pAgenda).orEmpty()
     val user=prefs?.get(pUser).orEmpty()
@@ -80,7 +81,7 @@ fun AgendaApp(dao:EntryDao) {
     fun create(section:String,date:String="") = Entry(section=section,title="",date=date)
     fun toggle(e:Entry) { action { dao.put(if(e.section=="Hábitos") e.toggleHabit(today) else e.copy(done=!e.done,updatedAt=System.currentTimeMillis())) } }
     val safety=remember { File(ctx.filesDir,"before-import.json") }
-    fun snapshot()=Backup.encode(records,name,user,theme,goal,drafts)
+    suspend fun snapshot():String { val (saved,pending)=dao.snapshot();return withContext(Dispatchers.Default){Backup.encode(saved,name,user,theme,goal,pending)} }
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri:Uri? ->
         if(uri!=null) action {
             val raw=snapshot()
@@ -131,7 +132,7 @@ fun AgendaApp(dao:EntryDao) {
                             "Ajustes" -> SettingsScreen(name,user,theme,goal,prefs?.get(pLastBackup).orEmpty(),safety.exists(),
                                 {n,u,t,g->action{ctx.prefs.edit {it[pAgenda]=n;if(n.isBlank())it[pAgenda]="Mi Agenda";it[pUser]=u;it[pTheme]=t;it[pWaterGoal]=g};snack.showSnackbar("Preferencias guardadas.")}},
                                 {export.launch("agenda-${today}.json")},{import.launch(arrayOf("application/json","text/*","application/octet-stream"))},
-                                {action{pendingImport=withContext(Dispatchers.IO){Backup.decode(safety.readText())}}})
+                                {action{pendingImport=withContext(Dispatchers.IO){Backup.decode(String(AtomicFile(safety).readFully(),Charsets.UTF_8))}}})
                             else -> EntryListScreen(page,all.filter{it.section==page},{open(create(page))},{open(it)},{toggle(it)},{e->action{dao.trash(e.id,System.currentTimeMillis());snack.showSnackbar("Enviado a Papelera.")}})
                         }
                     }

@@ -6,6 +6,13 @@ import org.junit.Test
 import org.junit.Assert.*
 
 class DomainTest {
+    @Test fun rejectsDraftWhoseOriginalWasDeletedOrKeyWasChanged() {
+        val note=Entry(id=20,section="Notas",title="Página")
+        val orphan=Draft("entry:20",EntryCodec.json(note).toString())
+        assertThrows(IllegalArgumentException::class.java){Backup.decode(Backup.encode(emptyList(),"Agenda","",drafts=listOf(orphan)))}
+        val wrongKey=orphan.copy(key="entry:99")
+        assertThrows(IllegalArgumentException::class.java){Backup.decode(Backup.encode(listOf(note),"Agenda","",drafts=listOf(wrongKey)))}
+    }
     @Test fun monthlyRecurrenceClampsToLastDayWithoutGoingBeforeStart() {
         val e=Entry(section="Calendario",title="Cita",date="2026-01-31",repeatRule="monthly")
         assertTrue(e.occursOn(LocalDate.parse("2026-02-28")))

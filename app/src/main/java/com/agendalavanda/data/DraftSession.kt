@@ -16,13 +16,13 @@ class DraftSession(private val dao:EntryDao,val key:String) {
         latest=entry;status.value="Guardando borrador…";pending?.cancel()
         pending=scope.launch { delay(400);write() }
     }
-    private suspend fun write()=lock.withLock {
+    private suspend fun write(failOnError:Boolean=false)=lock.withLock {
         if(!closed) latest?.let { entry ->
             try { dao.putDraft(Draft(key,EntryCodec.json(entry).toString()));status.value="Borrador guardado en este dispositivo" }
-            catch(e:Exception) { if(e is CancellationException) throw e;status.value="No se pudo guardar el borrador. Intenta Guardar." }
+            catch(e:Exception) { if(e is CancellationException) throw e;status.value="No se pudo guardar el borrador. Intenta Guardar.";if(failOnError) throw e }
         }
     }
-    suspend fun flush() { pending?.cancel();write() }
+    suspend fun flush() { pending?.cancel();write(true) }
     suspend fun save(entry:Entry):Long {
         pending?.cancel()
         return lock.withLock { val id=dao.save(entry,key);closed=true;status.value="Guardado";id }

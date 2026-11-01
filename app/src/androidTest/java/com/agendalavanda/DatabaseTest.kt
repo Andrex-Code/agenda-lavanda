@@ -11,6 +11,21 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class DatabaseTest {
+    @Test fun concurrentWaterUpdatesAndFailedDraftFlushAreSafe()=runBlocking {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val db=Room.inMemoryDatabaseBuilder(ctx,AppDatabase::class.java).build()
+        val dao=db.entries()
+        coroutineScope { (1..10).map { async {dao.changeWater("2026-11-01",1)} }.awaitAll() }
+        assertEquals(1,dao.all().size)
+        assertEquals("10",dao.all().single().body)
+        val session=DraftSession(dao,"new:Notas:0")
+        db.close()
+        session.update(Entry(section="Notas",title="Debe conservarse"))
+        var failed=false
+        try {session.flush()} catch(e:Exception){failed=true}
+        assertTrue("El cierre debe detectar que el borrador no se pudo escribir",failed)
+        session.finish()
+    }
     @get:Rule val helper=MigrationTestHelper(InstrumentationRegistry.getInstrumentation(),AppDatabase::class.java)
     @Test fun migrationPreservesOriginalNotesAndAddsDrafts() {
         helper.createDatabase("migration-check",1).apply {

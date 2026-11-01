@@ -62,6 +62,13 @@ object Backup {
             EntryCodec.read(JSONObject(d.getString("payload")), validate=false)
             Draft(d.getString("key"),d.getString("payload"),d.optLong("updatedAt"))
         }
+        drafts.forEach { draft ->
+            val e=EntryCodec.read(JSONObject(draft.payload),validate=false)
+            require(e.id == 0L || byId[e.id]?.section == e.section) { "El borrador no tiene su registro original." }
+            require(e.notebookId == null || byId[e.notebookId]?.section == "Cuadernos") { "El cuaderno del borrador no existe." }
+            val expected=if(e.id>0) "entry:${e.id}" else "new:${e.section}:${e.notebookId ?: 0}"
+            require(draft.key==expected) { "Identificador de borrador inválido." }
+        }
         require(drafts.map { it.key }.toSet().size == drafts.size) { "Borradores duplicados." }
         return ImportData(entries,root.optString("agendaName","Mi Agenda"),root.optString("userName"),
             root.optInt("theme").coerceIn(0,3),root.optInt("waterGoal",8).coerceIn(1,30),drafts)

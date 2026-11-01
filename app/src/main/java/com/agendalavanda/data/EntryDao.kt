@@ -22,6 +22,8 @@ abstract class EntryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) abstract suspend fun putDraft(draft: Draft)
     @Query("SELECT * FROM drafts WHERE key = :key") abstract suspend fun draft(key: String): Draft?
     @Query("SELECT * FROM drafts ORDER BY updatedAt DESC") abstract fun observeDrafts(): Flow<List<Draft>>
+    @Query("SELECT * FROM drafts ORDER BY updatedAt DESC") abstract suspend fun allDrafts(): List<Draft>
+    @Transaction open suspend fun snapshot(): Pair<List<Entry>,List<Draft>> = all() to allDrafts()
     @Query("DELETE FROM drafts WHERE key = :key") abstract suspend fun deleteDraft(key: String)
     @Query("DELETE FROM drafts") abstract suspend fun clearDrafts()
     @Transaction open suspend fun save(entry: Entry, draftKey: String): Long { require(entry.notebookId == null || find(entry.notebookId)?.let { it.section == "Cuadernos" && it.deletedAt == 0L } == true) { "El cuaderno fue eliminado. Elige otro cuaderno." }; val id = put(entry); deleteDraft(draftKey); return id }

@@ -33,6 +33,7 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
     var entry by remember { mutableStateOf(initial) }
     var doc by remember { mutableStateOf(InkDocument()) }
     var ready by remember { mutableStateOf(false) }
+    var baseline by remember { mutableStateOf<Entry?>(null) }
     var error by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var ink by remember { mutableStateOf(false) }
@@ -44,17 +45,18 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
         try {
             val draft=recovered ?: dao.draft(key)
             entry=draft?.let { EntryCodec.read(JSONObject(it.payload),validate=false) } ?: initial
-            doc=InkDocument.decode(entry.body);ready=true
+            doc=InkDocument.decode(entry.body);baseline=initial.copy(body=InkDocument.decode(initial.body).encode());ready=true
         } catch(e:Exception) { error="No se pudo abrir la página: ${e.message}. El contenido original se conserva." }
     }
-    val candidate=entry.copy(body=doc.encode())
-    LaunchedEffect(candidate,ready) { if(ready) session.update(candidate) }
+    val candidate=remember(entry,doc) { entry.copy(body=doc.encode()) }
+    val currentCandidate by rememberUpdatedState(candidate)
+    LaunchedEffect(candidate,ready) { if(ready && candidate != baseline) session.update(candidate) }
     DisposableEffect(lifecycle) {
-        val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP) scope.launch {session.flush()} }
+        val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP) scope.launch { try { session.update(currentCandidate);session.flush() } catch(e:Exception) { error="No se pudo guardar el borrador: ${e.message}" } } }
         lifecycle.lifecycle.addObserver(observer)
         onDispose { lifecycle.lifecycle.removeObserver(observer);session.finish() }
     }
-    fun close() { scope.launch { session.flush();onClose() } }
+    fun close() { if(saving) return; if(!ready) {onClose();return}; scope.launch { try { if(candidate==baseline) session.discard() else {session.update(candidate);session.flush()};onClose() } catch(e:Exception) { error="No se pudo guardar el borrador. Permanece abierto para reintentar." } } }
     fun save() {
         saving=true
         scope.launch {

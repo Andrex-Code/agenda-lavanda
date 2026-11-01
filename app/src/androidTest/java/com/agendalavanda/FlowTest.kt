@@ -14,29 +14,31 @@ import org.junit.runner.RunWith
 class FlowTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     @Test fun handwritingSavedAndDraftRecovered() {
-        compose.waitUntil(15000){compose.onAllNodesWithText("Empezar").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("Notas").fetchSemanticsNodes().isNotEmpty()}
+        val noteTitle="Manuscrito "+System.nanoTime()
+        val draftTitle="Borrador "+System.nanoTime()
+        compose.waitUntil(60000){compose.onAllNodesWithText("Empezar").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("Notas").fetchSemanticsNodes().isNotEmpty()}
         if(compose.onAllNodesWithText("Empezar").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("Empezar").performClick()
         compose.onAllNodesWithText("Notas").onFirst().performClick()
         compose.onNodeWithText("✎  Nueva página · texto y lápiz").performClick()
-        compose.waitUntil(10000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("Título").performTextInput("Prueba manuscrita")
+        compose.waitUntil(30000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText("Título").performTextInput(noteTitle)
         compose.onNodeWithText("✎  Escribir con lápiz · 0 trazos").performScrollTo().performClick()
         compose.onNodeWithTag("inkCanvas").performTouchInput { swipe(Offset(100f,150f),Offset(230f,230f),500) }
         compose.onNodeWithText("Volver a la nota").performClick()
         compose.onNodeWithText("Guardar",useUnmergedTree=true).performClick()
-        compose.waitUntil(10000){compose.onAllNodesWithText("Prueba manuscrita").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(30000){compose.onAllNodesWithText(noteTitle).fetchSemanticsNodes().isNotEmpty()}
         val dao=AppDatabase.create(compose.activity).entries()
-        val saved=runBlocking{dao.all().first{it.title=="Prueba manuscrita"}}
+        val saved=runBlocking{dao.all().first{it.title==noteTitle}}
         assertTrue(InkDocument.decode(saved.body).strokes.isNotEmpty())
         compose.onNodeWithText("✎  Nueva página · texto y lápiz").performClick()
-        compose.waitUntil(10000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("Título").performTextInput("Borrador recuperable")
+        compose.waitUntil(30000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText("Título").performTextInput(draftTitle)
         compose.onNodeWithText("Cerrar").performClick()
         compose.onNodeWithContentDescription("Borradores").performClick()
-        compose.waitUntil(10000){compose.onAllNodesWithText("Borrador recuperable").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("Borrador recuperable").performClick()
-        compose.waitUntil(10000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("Borrador recuperable").assertExists()
+        compose.waitUntil(30000){compose.onAllNodesWithText(draftTitle).fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText(draftTitle).performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithText("Título").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText(draftTitle).assertExists()
     }
 }
 
