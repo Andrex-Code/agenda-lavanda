@@ -67,7 +67,9 @@ class FlowTest {
         val dao=AppDatabase.create(compose.activity).entries()
         val records=runBlocking {dao.all()}
         assertEquals(records.first{it.title==book}.id,records.first{it.title==page}.notebookId)
-        compose.onAllNodesWithText("Diario").onFirst().performScrollTo().performClick()
+        val diaryNavigation=compose.onAllNodesWithText("Diario").onFirst()
+        if(compose.activity.resources.configuration.screenWidthDp>=840) diaryNavigation.performScrollTo()
+        diaryNavigation.performClick()
         compose.waitUntil(30000){compose.onAllNodesWithTag("diaryList").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("diaryList").performScrollToNode(hasText("+ Un vaso"))
         compose.onNodeWithText("+ Un vaso").performClick()
