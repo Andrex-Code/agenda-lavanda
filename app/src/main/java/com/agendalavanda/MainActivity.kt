@@ -57,9 +57,9 @@ private val icons=listOf(Icons.Default.Home,Icons.Default.CalendarMonth,Icons.De
     Icons.Default.Book,Icons.Default.Favorite,Icons.Default.AutoAwesome,Icons.Default.Flag,Icons.Default.History,Icons.Default.DeleteOutline,Icons.Default.Settings)
 val palettes=listOf(
     listOf(Color(0xFFF4EFFB),Color(0xFFE8DDF7),Color(0xFF75539B),Color(0xFFFAF8FD)),
-    listOf(Color(0xFFFFF0F1),Color(0xFFFFDDE1),Color(0xFFAD586E),Color(0xFFFFFAFA)),
-    listOf(Color(0xFFEDF5F1),Color(0xFFD7EBE1),Color(0xFF4E8068),Color(0xFFF8FCF9)),
-    listOf(Color(0xFFFFF5E9),Color(0xFFFFE6C7),Color(0xFF9C6A2E),Color(0xFFFFFBF5)))
+    listOf(Color(0xFFFFF0F1),Color(0xFFFFDDE1),Color(0xFF98475F),Color(0xFFFFFAFA)),
+    listOf(Color(0xFFEDF5F1),Color(0xFFD7EBE1),Color(0xFF426F59),Color(0xFFF8FCF9)),
+    listOf(Color(0xFFFFF5E9),Color(0xFFFFE6C7),Color(0xFF8A5A22),Color(0xFFFFFBF5)))
 
 @Composable
 fun AgendaApp(dao:EntryDao) {
@@ -113,7 +113,7 @@ fun AgendaApp(dao:EntryDao) {
             } } finally {busy=false}
         }
     }
-    MaterialTheme(colorScheme=lightColorScheme(primary=c[2],secondary=c[2],background=c[0],surface=c[3])) {
+    MaterialTheme(colorScheme=lightColorScheme(primary=c[2],secondary=c[2],primaryContainer=c[1],secondaryContainer=c[1],onPrimary=Color.White,onSecondary=Color.White,background=c[0],surface=c[3])) {
         if(prefs==null) { Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()};return@MaterialTheme }
         BoxWithConstraints(Modifier.fillMaxSize().background(c[0]).safeDrawingPadding().imePadding()) {
             val wide=maxWidth>=840.dp

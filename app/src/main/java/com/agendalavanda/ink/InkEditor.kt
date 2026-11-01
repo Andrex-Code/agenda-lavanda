@@ -55,7 +55,7 @@ fun InkEditor(document: InkDocument, onChange:(InkDocument)->Unit, close:()->Uni
     if(options) AlertDialog(onDismissRequest={options=false},title={Text("Opciones de la hoja")},text={
         Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text("Color de tinta")
-            listOf(0xff75539b.toInt(),0xff272334.toInt(),0xffb94f77.toInt(),0xff377c77.toInt(),0xff387bc3.toInt()).forEachIndexed { i,c ->
+            listOf(0xff75539b.toInt(),0xff272334.toInt(),0xff9a365c.toInt(),0xff286660.toInt(),0xff225b99.toInt()).forEachIndexed { i,c ->
                 FilterChip(selected=color==c,onClick={color=c},label={Text(listOf("Lavanda","Tinta","Rosa","Verde","Azul")[i],color=Color(c))})
             }
             Text("Grosor")

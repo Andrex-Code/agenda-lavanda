@@ -29,7 +29,7 @@ class DraftSession(private val dao:EntryDao,val key:String,private val writeDraf
                         activeKey="entry:$savedId"
                     }
                 }
-                status.value=if(autoCommit) "Guardado en este dispositivo" else "Borrador guardado en este dispositivo"
+                status.value=if(latest!=entry) "Guardando…" else if(autoCommit) "Guardado en este dispositivo" else "Borrador guardado en este dispositivo"
             }
             catch(e:Exception) { if(e is CancellationException) throw e;status.value=if(autoCommit) "Error al guardar · reintenta con Guardar" else "No se pudo guardar el borrador. Intenta Guardar.";if(failOnError) throw e }
         }
