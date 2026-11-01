@@ -23,7 +23,11 @@ class DraftSession(private val dao:EntryDao,val key:String,private val writeDraf
         if(!closed) latest?.let { entry ->
             try {
                 withContext(NonCancellable) {
-                    writeDraft(Draft(activeKey,EntryCodec.json(entry.copy(id=savedId ?: entry.id)).toString()))
+                    val current=entry.copy(id=savedId ?: entry.id)
+                    val draftKey=if(current.id>0) "entry:${current.id}" else "new:${current.section}:${current.notebookId ?: 0}"
+                    writeDraft(Draft(draftKey,EntryCodec.json(current).toString()))
+                    if(activeKey!=draftKey) dao.deleteDraft(activeKey)
+                    activeKey=draftKey
                     if(autoCommit) {
                         savedId=dao.save(entry.copy(id=savedId ?: entry.id,updatedAt=System.currentTimeMillis()),activeKey)
                         activeKey="entry:$savedId"

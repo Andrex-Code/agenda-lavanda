@@ -38,6 +38,14 @@ class DatabaseTest {
             failing.discard();failing.finish()
             val restored=Backup.decode(Backup.encode(dao.all(),"Mi agenda",""))
             assertEquals(id,restored.entries.single().id)
+            val book=dao.put(Entry(section="Cuadernos",title="Mis páginas"))
+            val interrupted=DraftSession(dao,"new:Notas:0",writeDraft={dao.putDraft(it);throw java.io.IOException("Interrupción después del borrador")},autoCommit=true)
+            interrupted.update(original.copy(notebookId=book))
+            try {interrupted.flush()} catch(_:java.io.IOException) { }
+            val copy=Backup.decode(Backup.encode(dao.all(),"Agenda","",drafts=dao.allDrafts()))
+            assertEquals("new:Notas:$book",copy.drafts.single().key)
+            assertEquals(book,EntryCodec.read(org.json.JSONObject(copy.drafts.single().payload)).notebookId)
+            interrupted.discard();interrupted.finish();dao.clearDrafts()
         } finally { db.close() }
     }
     @Test fun concurrentWaterUpdatesAndFailedDraftFlushAreSafe()=runBlocking {
