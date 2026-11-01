@@ -19,7 +19,7 @@ class FlowTest {
     }
     private fun capture(name:String) {
         val instrumentation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        val command="mkdir -p /sdcard/Download/agenda-qa && screencap -p /sdcard/Download/agenda-qa/$name.png"
+        val command="screencap -p /sdcard/Download/agenda-qa-$name.png"
         android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use {it.readBytes()}
     }
     @After fun captureResult(){capture("last-screen")}
@@ -67,6 +67,7 @@ class FlowTest {
         val records=runBlocking {dao.all()}
         assertEquals(records.first{it.title==book}.id,records.first{it.title==page}.notebookId)
         compose.onAllNodesWithText("Diario").onFirst().performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("diaryList").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("diaryList").performScrollToNode(hasText("+ Un vaso"))
         compose.onNodeWithText("+ Un vaso").performClick()
         compose.onNodeWithTag("routine-Skincare mañana").performClick()

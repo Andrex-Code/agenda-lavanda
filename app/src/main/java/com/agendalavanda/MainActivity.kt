@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -69,6 +70,8 @@ fun AgendaApp(dao:EntryDao) {
     var today by remember { mutableStateOf(LocalDate.now()) }
     LaunchedEffect(Unit) { while(true) { today=LocalDate.now();delay(30000) } }
     var page by rememberSaveable { mutableStateOf("Inicio") }
+    val keyboard=LocalSoftwareKeyboardController.current
+    LaunchedEffect(page){keyboard?.hide()}
     var menu by remember { mutableStateOf(false) }
     var entry by remember { mutableStateOf<Entry?>(null) }
     var resumed by remember { mutableStateOf<Draft?>(null) }
@@ -103,7 +106,7 @@ fun AgendaApp(dao:EntryDao) {
     }
     MaterialTheme(colorScheme=lightColorScheme(primary=c[2],secondary=c[2],background=c[0],surface=c[3])) {
         if(prefs==null) { Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()};return@MaterialTheme }
-        BoxWithConstraints(Modifier.fillMaxSize().background(c[0]).safeDrawingPadding()) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(c[0]).safeDrawingPadding().imePadding()) {
             val wide=maxWidth>=840.dp
             Row(Modifier.fillMaxSize()) {
                 if(wide) Column(Modifier.width(164.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {

@@ -11,6 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -79,13 +81,16 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
         } }
     }
     Dialog(onDismissRequest={close()},properties=DialogProperties(usePlatformDefaultWidth=false)) {
-        BackHandler { close() }
+        val keyboard=LocalSoftwareKeyboardController.current
+        val focus=LocalFocusManager.current
+        DisposableEffect(Unit) { onDispose { keyboard?.hide() } }
+        BackHandler { focus.clearFocus();keyboard?.hide();close() }
         Surface(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Column(Modifier.fillMaxSize()) {
                 Row(Modifier.fillMaxWidth().padding(8.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-                    TextButton(onClick={close()},enabled=!saving){Text("Cerrar")}
+                    TextButton(onClick={focus.clearFocus();keyboard?.hide();close()},enabled=!saving){Text("Cerrar")}
                     Text(entry.section,style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))
-                    Button(onClick={save()},enabled=ready && !saving && entry.title.isNotBlank() &&
+                    Button(onClick={focus.clearFocus();keyboard?.hide();save()},enabled=ready && !saving && entry.title.isNotBlank() &&
                         (entry.date.isBlank()||runCatching {LocalDate.parse(entry.date)}.isSuccess) &&
                         (entry.time.isBlank()||runCatching {LocalTime.parse(entry.time)}.isSuccess)) { Text(if(saving) "Guardando…" else "Guardar") }
                 }
