@@ -4,10 +4,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,6 +30,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val spanish=Locale.forLanguageTag("es")
+fun friendlyDate(raw:String)=runCatching {LocalDate.parse(raw).format(DateTimeFormatter.ofPattern("d MMM yyyy",spanish))}.getOrDefault(raw)
 private fun dateLabel(day:LocalDate)=day.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM",spanish))
 private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(InkDocument(text="No se puede mostrar la vista previa."))
 @Composable private fun Empty(text:String) { Card(Modifier.fillMaxWidth()){Text(text,Modifier.padding(24.dp))} }
@@ -36,13 +41,13 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
                 Text(entry.title.ifBlank{"Sin título"},style=MaterialTheme.typography.titleMedium)
                 if(extra.isNotBlank())Text(extra,style=MaterialTheme.typography.labelMedium)
-                if(entry.date.isNotBlank())Text(entry.date+" "+entry.time,style=MaterialTheme.typography.labelMedium)
+                if(entry.date.isNotBlank())Text(friendlyDate(entry.date)+" "+entry.time,style=MaterialTheme.typography.labelMedium)
                 val doc=remember(entry.body){note(entry)}
                 if(doc.text.isNotBlank())Text(doc.text.take(200),maxLines=3,style=MaterialTheme.typography.bodyMedium)
                 if(doc.strokes.isNotEmpty()) {
                     AndroidView(factory={PagePreview(it)},modifier=Modifier.fillMaxWidth().height(110.dp),
                         update={it.page=doc;it.invalidate()})
-                    Text("✎ ${doc.strokes.size} trazos · toca para editar",style=MaterialTheme.typography.labelSmall)
+                    Text("✎ Página manuscrita · toca para editar",style=MaterialTheme.typography.labelSmall)
                 }
                 if(entry.section=="Metas") { LinearProgressIndicator(progress={entry.progress/100f},modifier=Modifier.fillMaxWidth());Text("${entry.progress}% completado") }
             }
@@ -50,7 +55,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         }
     }
 }
-@Composable fun HomeScreen(all:List<Entry>,user:String,today:LocalDate,goal:Int,draftCount:Int,navigate:(String)->Unit,open:(Entry)->Unit) {
+@Composable fun HomeScreen(all:List<Entry>,user:String,today:LocalDate,goal:Int,draftCount:Int,navigate:(String)->Unit,open:(Entry)->Unit,onInk:()->Unit={},showGuide:Boolean=false,dismissGuide:()->Unit={},backupDue:Boolean=false) {
     val pending=all.count{it.section=="Tareas"&&!it.done}
     val water=all.firstOrNull{it.section=="Diario"&&it.title=="Agua"&&it.date==today.toString()}?.body?.toIntOrNull() ?: 0
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
@@ -61,6 +66,18 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
                 Text("Organiza lo importante. Deja espacio para ti.")
             }
         } }
+        if(showGuide) item { Card { Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Text("Tu agenda en tres pasos",style=MaterialTheme.typography.titleLarge)
+            Text("1. Crea una página y escribe con teclado o lápiz.\n2. Encuéntrala en Notas; tus cambios se guardan automáticamente.\n3. Exporta una copia desde Ajustes y guárdala fuera del dispositivo.")
+            Button(onClick=onInk){Text("Crear mi primera hoja manuscrita")}
+            TextButton(onClick=dismissGuide){Text("Entendido · ocultar guía")}
+        } } }
+        item { OutlinedButton(onClick=onInk,modifier=Modifier.fillMaxWidth()){Text("✎ Nueva hoja manuscrita")} }
+        if(backupDue) item { Card {Column(Modifier.padding(16.dp)) {
+            Text("Protege tus recuerdos",style=MaterialTheme.typography.titleMedium)
+            Text("Hace al menos una semana que no exportas una copia, o todavía no has creado ninguna.")
+            TextButton(onClick={navigate("Ajustes")}){Text("Ir a copias de seguridad")}
+        }} }
         item { Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
             Card(onClick={navigate("Tareas")},modifier=Modifier.weight(1f)){Column(Modifier.padding(18.dp)){Text("$pending",style=MaterialTheme.typography.headlineMedium);Text("Tareas pendientes")}}
             Card(onClick={navigate("Diario")},modifier=Modifier.weight(1f)){Column(Modifier.padding(18.dp)){Text("$water / $goal",style=MaterialTheme.typography.headlineMedium);Text("Vasos de agua")}}
@@ -83,7 +100,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
     val day=LocalDate.parse(selected);val month=YearMonth.from(day)
     val events=all.filter{it.section in listOf("Calendario","Tareas")}
     fun shift(delta:Long){selected=when(mode){"Mes"->day.plusMonths(delta);"Semana"->day.plusWeeks(delta);else->day.plusDays(delta)}.toString()}
-    LazyColumn(Modifier.testTag("calendarList"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    fun LazyListScope.calendarItems() {
         item{Row(verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={shift(-1)}){Icon(Icons.Default.ChevronLeft,"Anterior")}
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy",spanish)),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
@@ -100,12 +117,12 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
                     Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){
                         week.forEach { offset ->
                             val cell=first.plusDays(offset.toLong());val n=events.count{it.occursOn(cell)}
-                            Surface(onClick={selected=cell.toString()},modifier=Modifier.weight(1f).heightIn(min=56.dp),
+                            Surface(onClick={selected=cell.toString()},modifier=Modifier.weight(1f).heightIn(min=56.dp).semantics { contentDescription="${dateLabel(cell)}, $n eventos";this.selected=cell==day },
                                 color=if(cell==day)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                                 shape=MaterialTheme.shapes.small) {
                                 Column(Modifier.padding(vertical=7.dp),horizontalAlignment=Alignment.CenterHorizontally){
                                     Text(cell.dayOfMonth.toString(),color=if(cell.month==month.month)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
-                                    Text(if(cell==today)"Hoy" else if(n>0)"• $n" else "",style=MaterialTheme.typography.labelSmall)
+                                    Text(listOfNotNull(if(cell==today) "Hoy" else null,if(n>0) "• $n" else null).joinToString(" "),style=MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -113,30 +130,53 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
                 }
             }
         }
+    }
+    fun LazyListScope.dayItems() {
         item{Text(dateLabel(day),style=MaterialTheme.typography.titleMedium)}
         item{Button(onClick={add(day)},modifier=Modifier.fillMaxWidth()){Text("+ Evento para este día")}}
         val selectedEvents=events.filter{it.occursOn(day)}.sortedWith(compareBy<Entry>{it.time.ifBlank{"99:99"}}.thenBy{it.title})
         if(selectedEvents.isEmpty())item{Empty("Este día está libre.")}
         items(selectedEvents,key={it.id}){e->EntryCard(e,{open(e)},extra=if(e.repeatRule.isNotBlank())"Evento recurrente" else e.section)}
     }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if(maxWidth>=900.dp) Row(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.weight(1.25f).fillMaxHeight(),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){calendarItems()}
+            LazyColumn(Modifier.weight(1f).fillMaxHeight().testTag("calendarList"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){dayItems()}
+        } else LazyColumn(Modifier.fillMaxSize().testTag("calendarList"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){calendarItems();dayItems()}
+    }
 }
-@Composable fun EntryListScreen(section:String,entries:List<Entry>,add:()->Unit,open:(Entry)->Unit,toggle:(Entry)->Unit,trash:(Entry)->Unit) {
+@Composable fun EntryListScreen(section:String,entries:List<Entry>,add:()->Unit,open:(Entry)->Unit,toggle:(Entry)->Unit,trash:(Entry)->Unit,onInk:(()->Unit)?=null) {
     var query by rememberSaveable(section){mutableStateOf("")}
     var filter by rememberSaveable(section){mutableStateOf("Todos")}
     var sort by rememberSaveable(section){mutableStateOf("Recientes")}
+    var sorting by remember {mutableStateOf(false)}
     val shown=entries.filter{query.isBlank()||it.title.contains(query,true)||note(it).text.contains(query,true)}
         .filter{filter=="Todos" || (if(section=="Metas")it.progress==100 else it.done)==(filter=="Completados")}
         .let { list -> when(sort){"Título"->list.sortedBy{it.title.lowercase()};"Fecha"->list.sortedBy{it.date.ifBlank{"9999"}};else->list.sortedByDescending{it.updatedAt}} }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val columns=if(maxWidth>=720.dp) 2 else 1
     LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item{Button(onClick=add,modifier=Modifier.fillMaxWidth()){Text(if(section=="Notas")"✎  Nueva página · texto y lápiz" else "+ Agregar ${section.lowercase()}")}}
+        if(onInk!=null) item{OutlinedButton(onClick=onInk,modifier=Modifier.fillMaxWidth()){Text("✎ Nueva hoja manuscrita")}}
         item{OutlinedTextField(query,{query=it},label={Text("Buscar")},singleLine=true,modifier=Modifier.fillMaxWidth())}
         item{Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
             if(section in listOf("Tareas","Metas"))listOf("Todos","Pendientes","Completados").forEach{f->FilterChip(selected=filter==f,onClick={filter=f},label={Text(f)})}
-            listOf("Recientes","Título","Fecha").forEach{s->FilterChip(selected=sort==s,onClick={sort=s},label={Text(s)})}
         }}
-        if(shown.isEmpty())item{Empty(if(query.isBlank())"Tu espacio está listo. Agrega el primer elemento." else "No hay resultados para esta búsqueda.")}
-        items(shown,key={it.id}){e->EntryCard(e,{open(e)},if(section=="Tareas")({toggle(e)}) else null,{trash(e)})}
+        item{Box {
+            OutlinedButton(onClick={sorting=true}){Text("Ordenar por: $sort ▾")}
+            DropdownMenu(expanded=sorting,onDismissRequest={sorting=false}) {
+                listOf("Recientes","Título","Fecha").forEach { value -> DropdownMenuItem(text={Text(value)},onClick={sort=value;sorting=false}) }
+            }
+        }}
+        if(shown.isEmpty())item{Empty(if(query.isNotBlank()) "No hay resultados. Prueba otra palabra." else if(filter!="Todos") "No hay elementos con este estado." else when(section){"Notas"->"Escribe tu primera página con teclado o lápiz.";"Metas"->"¿Qué quieres lograr? Crea tu primera meta y registra tu avance.";"Tareas"->"Agrega tu primera tarea para liberar espacio en tu mente.";else->"Tu espacio está listo para empezar."})}
+        items(shown.chunked(columns),key={it.first().id}){row->
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                row.forEach { e -> Box(Modifier.weight(1f)){EntryCard(e,{open(e)},if(section=="Tareas")({toggle(e)}) else null,{trash(e)})} }
+                if(row.size<columns) Spacer(Modifier.weight(1f))
+            }
+        }
     }
+}
 }
 @Composable fun NotebooksScreen(all:List<Entry>,open:(Entry)->Unit,addPage:(Long)->Unit,addBook:()->Unit,trash:(Entry)->Unit) {
     var bookId by rememberSaveable{mutableStateOf<Long?>(null)}
@@ -165,29 +205,31 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         }
     }
 }
-@Composable fun DiaryScreen(entries:List<Entry>,today:LocalDate,goal:Int,open:(Entry)->Unit,water:(LocalDate,Int)->Unit,routine:(LocalDate,String)->Unit,trash:(Entry)->Unit) {
+@Composable fun DiaryScreen(entries:List<Entry>,today:LocalDate,goal:Int,open:(Entry)->Unit,water:(LocalDate,Int)->Unit,routine:(LocalDate,String)->Unit,trash:(Entry)->Unit,showWater:Boolean=true,showSkin:Boolean=true) {
     var selected by rememberSaveable{mutableStateOf(today.toString())};val day=LocalDate.parse(selected)
     val daily=entries.filter{it.date==selected};val count=daily.firstOrNull{it.title=="Agua"}?.body?.toIntOrNull() ?: 0
     LazyColumn(Modifier.testTag("diaryList"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
         item{Row(verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={selected=day.minusDays(1).toString()}){Icon(Icons.Default.ChevronLeft,"Día anterior")}
-            Text(selected,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+            Text(dateLabel(day),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
             IconButton(onClick={selected=day.plusDays(1).toString()}){Icon(Icons.Default.ChevronRight,"Día siguiente")}
             TextButton(onClick={selected=today.toString()}){Text("Hoy")}
         }}
-        item{Card{Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        item{Button(onClick={open(Entry(section="Diario",title="Mi diario",date=selected))},modifier=Modifier.fillMaxWidth()){Text("✎  Escribir mi reflexión")}}
+        if(showWater || showSkin) item{Card{Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
             Text("Tu autocuidado",style=MaterialTheme.typography.titleLarge)
-            listOf("Skincare mañana","Skincare noche").forEach{label->Row(Modifier.fillMaxWidth().testTag("routine-$label").toggleable(value=daily.any{it.title==label&&it.done},role=Role.Checkbox,onValueChange={routine(day,label)}),verticalAlignment=Alignment.CenterVertically){
+            if(showSkin) listOf("Skincare mañana","Skincare noche").forEach{label->Row(Modifier.fillMaxWidth().testTag("routine-$label").toggleable(value=daily.any{it.title==label&&it.done},role=Role.Checkbox,onValueChange={routine(day,label)}),verticalAlignment=Alignment.CenterVertically){
                 Checkbox(daily.any{it.title==label&&it.done},null);Text(label)
             }}
+            if(showWater) Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text("Agua: $count / $goal vasos")
             LinearProgressIndicator(progress={(count.toFloat()/goal).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
                 OutlinedButton(enabled=count>0,onClick={water(day,-1)}){Text("− Un vaso")}
                 Button(onClick={water(day,1)}){Text("+ Un vaso")}
             }
+            }
         }}}
-        item{Button(onClick={open(Entry(section="Diario",title="Mi diario",date=selected))},modifier=Modifier.fillMaxWidth()){Text("✎  Escribir mi reflexión")}}
         items(daily.filter{it.title !in listOf("Agua","Skincare mañana","Skincare noche")},key={it.id}){e->EntryCard(e,{open(e)},onTrash={trash(e)})}
     }
 }
@@ -212,7 +254,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
     var pending by remember{mutableStateOf<Draft?>(null)}
     LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
         item{Text("Borradores recuperables",style=MaterialTheme.typography.headlineSmall)}
-        item{Text("Los cambios del editor se guardan aquí automáticamente. Abre uno para continuar y pulsa Guardar para finalizar.")}
+        item{Text("Aquí puedes recuperar cambios de sesiones anteriores o de un guardado interrumpido. Al continuar, se guardarán automáticamente en tu agenda.")}
         if(drafts.isEmpty())item{Empty("No tienes borradores pendientes.")}
         items(drafts,key={it.key}){d->
             val e=runCatching{EntryCodec.read(JSONObject(d.payload),validate=false)}.getOrNull()
@@ -239,7 +281,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         confirmButton={TextButton(onClick={delete(e);pending=null}){Text("Eliminar")}},dismissButton={TextButton(onClick={pending=null}){Text("Cancelar")}})}
 }
 @Composable fun SettingsScreen(name:String,user:String,theme:Int,water:Int,lastBackup:String,hasSafety:Boolean,
-    save:(String,String,Int,Int)->Unit,export:()->Unit,import:()->Unit,restoreSafety:()->Unit) {
+    save:(String,String,Int,Int)->Unit,export:()->Unit,import:()->Unit,restoreSafety:()->Unit,reminder:Boolean=true,showWater:Boolean=true,showSkin:Boolean=true,onDisplayChange:(Boolean,Boolean,Boolean)->Unit={_,_,_->},showHelp:()->Unit={}) {
     var n by remember(name){mutableStateOf(name)};var u by remember(user){mutableStateOf(user)}
     var t by remember(theme){mutableIntStateOf(theme)};var w by remember(water){mutableStateOf(water.toString())}
     LazyColumn(contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
@@ -252,17 +294,23 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         item{OutlinedTextField(w,{w=it.filter(Char::isDigit).take(2)},label={Text("Meta diaria de vasos de agua (1–30)")},modifier=Modifier.fillMaxWidth(),singleLine=true)}
         item{Button(onClick={save(n,u,t,(w.toIntOrNull() ?: 8).coerceIn(1,30))}){Text("Guardar preferencias")}}
         item{HorizontalDivider()}
+        item{Text("Tu diario",style=MaterialTheme.typography.titleLarge)}
+        item{Row(Modifier.fillMaxWidth().toggleable(value=showWater,role=Role.Switch,onValueChange={onDisplayChange(reminder,it,showSkin)}),verticalAlignment=Alignment.CenterVertically){Switch(showWater,null);Text("Mostrar toma de agua",Modifier.padding(start=12.dp))}}
+        item{Row(Modifier.fillMaxWidth().toggleable(value=showSkin,role=Role.Switch,onValueChange={onDisplayChange(reminder,showWater,it)}),verticalAlignment=Alignment.CenterVertically){Switch(showSkin,null);Text("Mostrar skincare",Modifier.padding(start=12.dp))}}
+        item{Text("Ocultar un seguimiento conserva su historial.",style=MaterialTheme.typography.bodySmall)}
         item{Text("Cuida tus recuerdos",style=MaterialTheme.typography.titleLarge)}
-        item{Text(if(lastBackup.isBlank())"Aún no has exportado una copia. Guarda una fuera de la tablet para protegerte si se pierde o se daña." else "Última copia exportada: $lastBackup")}
+        item{Row(Modifier.fillMaxWidth().toggleable(value=reminder,role=Role.Switch,onValueChange={onDisplayChange(it,showWater,showSkin)}),verticalAlignment=Alignment.CenterVertically){Switch(reminder,null);Text("Recordatorio semanal en Inicio",Modifier.padding(start=12.dp))}}
+        item{Text(if(lastBackup.isBlank())"Aún no has exportado una copia. Guarda una fuera de la tablet para protegerte si se pierde o se daña." else "Última copia exportada: $${friendlyDate(lastBackup)}")}
         item{OutlinedButton(onClick=export,modifier=Modifier.fillMaxWidth()){Text("Exportar copia completa")}}
         item{OutlinedButton(onClick=import,modifier=Modifier.fillMaxWidth()){Text("Importar copia")}}
         if(hasSafety)item{OutlinedButton(onClick=restoreSafety,modifier=Modifier.fillMaxWidth()){Text("Recuperar estado previo a última importación")}}
         item{Text("La copia JSON contiene tus páginas, cuadernos, hábitos, papelera, borradores y preferencias. No está cifrada; guárdala en un lugar privado.",style=MaterialTheme.typography.bodySmall)}
         item{HorizontalDivider()}
+        item{TextButton(onClick=showHelp){Text("Volver a ver la guía de primeros pasos")}}
         item{Text("Cómo escribir con lápiz",style=MaterialTheme.typography.titleLarge)}
-        item{Text("Abre Notas → Nueva página → Escribir con lápiz. Elige color, grosor y papel. Usa dos dedos para ampliar, Mover para desplazarte y Solo lápiz para ignorar el dedo. Al volver al editor, pulsa Guardar. Si cierras antes, encontrarás el borrador en Más → Borradores.")}
+        item{Text("Abre Notas → Nueva página → Escribir con lápiz. Elige color, grosor y papel. Usa dos dedos para ampliar, Mover para desplazarte y Solo lápiz para ignorar el dedo. Los cambios se guardan automáticamente en tu agenda. Si ocurre un error, permanece en el editor y reintenta. Borradores permite recuperar cambios de sesiones anteriores.")}
         item{Text("Tus datos permanecen en este dispositivo. No hay cuenta, servidor, publicidad ni analítica. La app funciona sin internet.")}
-        item{Text("Agenda Lavanda 1.2.1 · Android",style=MaterialTheme.typography.labelMedium)}
+        item{Text("Agenda Lavanda 1.3.0 · Android",style=MaterialTheme.typography.labelMedium)}
     }
 }
 

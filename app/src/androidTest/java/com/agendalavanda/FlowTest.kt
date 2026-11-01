@@ -23,6 +23,24 @@ class FlowTest {
         android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use {it.readBytes()}
     }
     @After fun captureResult(){capture("last-screen")}
+    @Test fun directHandwritingWithoutTitleAutoSavesOnClose() {
+        start()
+        compose.onAllNodesWithText("Inicio").onFirst().performClick()
+        compose.onNodeWithText("✎ Nueva hoja manuscrita").performScrollTo().performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("inkCanvas").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("Lápiz").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Deshacer").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Borrador").assertIsDisplayed()
+        val dao=AppDatabase.create(compose.activity).entries()
+        val before=runBlocking{dao.all().map{it.id}.toSet()}
+        compose.onNodeWithTag("inkCanvas").performTouchInput { swipe(center,center+Offset(70f,90f),500) }
+        compose.onNodeWithText("Volver a la nota").performClick()
+        compose.onNodeWithText("Cerrar").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
+        compose.waitUntil(30000){runBlocking{dao.all().any{it.id !in before && InkDocument.decode(it.body).strokes.isNotEmpty()}}}
+        assertEquals(1,runBlocking{dao.all().count{it.id !in before}})
+        assertTrue(runBlocking{dao.allDrafts().isEmpty()})
+    }
     @Test fun calendarSurvivesRotation() {
         start()
         compose.onAllNodesWithText("Calendario").onFirst().performClick()
@@ -96,7 +114,7 @@ class FlowTest {
         compose.onNodeWithText("✎  Nueva página · texto y lápiz").performClick()
         compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("entryTitle").performTextInput(noteTitle)
-        compose.onNodeWithText("✎  Escribir con lápiz · 0 trazos").performScrollTo().performClick()
+        compose.onNodeWithText("✎  Escribir con lápiz").performScrollTo().performClick()
         compose.onNodeWithTag("inkCanvas").performTouchInput { swipe(Offset(100f,150f),Offset(230f,230f),500) }
         capture("ink-page")
         compose.onNodeWithText("Volver a la nota").performClick()
@@ -110,8 +128,10 @@ class FlowTest {
         compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("entryTitle").performTextInput(draftTitle)
         compose.onNodeWithText("Cerrar").performClick()
-        compose.onNodeWithContentDescription("Borradores").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
         compose.waitUntil(30000){compose.onAllNodesWithText(draftTitle).fetchSemanticsNodes().isNotEmpty()}
+        assertEquals(1,runBlocking{dao.all().count{it.title==draftTitle}})
+        assertTrue(runBlocking{dao.allDrafts().none{it.payload.contains(draftTitle)}})
         compose.onNodeWithText(draftTitle).performClick()
         compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("entryTitle").assertTextContains(draftTitle)

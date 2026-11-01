@@ -1,3 +1,14 @@
+# 1.3.0 · Revisión de UX
+
+- Guardado continuo de páginas con identidad estable, recuperación de errores y guardado al cerrar.
+- Acceso directo a manuscritos y herramientas esenciales siempre visibles; opciones agrupadas.
+- Sidebar adaptable, formularios contenidos y listados de dos columnas.
+- Calendario con eventos también en Hoy y dos paneles en tablet horizontal.
+- Filtros separados del orden, fechas legibles y estados vacíos específicos.
+- Guía opcional, recordatorio semanal de backup y diario configurable.
+- Copias compatibles con v1/v2 y nuevas preferencias opcionales.
+- Pruebas de identidad de autoguardado, fallo de almacenamiento y manuscrito sin título.
+
 # 1.2.1 — Revisión de estabilidad y dibujo
 
 - Cierre seguro de borradores: si falla la escritura, el editor informa y conserva la página abierta.

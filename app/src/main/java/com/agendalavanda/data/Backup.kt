@@ -34,9 +34,10 @@ object EntryCodec {
 
 object Backup {
     const val MAX_BYTES = 15_000_000
-    fun encode(entries: List<Entry>, name: String, user: String, theme: Int = 0, water: Int = 8, drafts: List<Draft> = emptyList()): String {
+    fun encode(entries: List<Entry>, name: String, user: String, theme: Int = 0, water: Int = 8, drafts: List<Draft> = emptyList(),showWater:Boolean=true,showSkin:Boolean=true,reminder:Boolean=true): String {
         val json = JSONObject().apply {
             put("format","agenda-lavanda-backup"); put("version",2); put("agendaName",name); put("userName",user)
+            put("showWater",showWater);put("showSkin",showSkin);put("reminder",reminder)
             put("theme",theme); put("waterGoal",water); put("createdAt",System.currentTimeMillis())
             put("entries",JSONArray().apply { entries.forEach { put(EntryCodec.json(it)) } })
             put("drafts",JSONArray().apply { drafts.forEach { put(JSONObject().put("key",it.key).put("payload",it.payload).put("updatedAt",it.updatedAt)) } })
@@ -71,8 +72,8 @@ object Backup {
         }
         require(drafts.map { it.key }.toSet().size == drafts.size) { "Borradores duplicados." }
         return ImportData(entries,root.optString("agendaName","Mi Agenda"),root.optString("userName"),
-            root.optInt("theme").coerceIn(0,3),root.optInt("waterGoal",8).coerceIn(1,30),drafts)
+            root.optInt("theme").coerceIn(0,3),root.optInt("waterGoal",8).coerceIn(1,30),drafts,root.optBoolean("showWater",true),root.optBoolean("showSkin",true),root.optBoolean("reminder",true))
     }
-    data class ImportData(val entries: List<Entry>, val agendaName: String, val userName: String, val theme: Int = 0, val waterGoal: Int = 8, val drafts: List<Draft> = emptyList())
+    data class ImportData(val entries: List<Entry>, val agendaName: String, val userName: String, val theme: Int = 0, val waterGoal: Int = 8, val drafts: List<Draft> = emptyList(),val showWater:Boolean=true,val showSkin:Boolean=true,val reminder:Boolean=true)
 }
 

@@ -4,6 +4,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class BackupTest {
+    @Test fun displayPreferencesRoundTripAndOlderCopiesUseDefaults() {
+        val restored=Backup.decode(Backup.encode(emptyList(),"Agenda","",showWater=false,showSkin=false,reminder=false))
+        assertFalse(restored.showWater);assertFalse(restored.showSkin);assertFalse(restored.reminder)
+        val old=Backup.decode("""{"format":"agenda-lavanda-backup","version":1,"entries":[]}""")
+        assertTrue(old.showWater);assertTrue(old.showSkin);assertTrue(old.reminder)
+    }
     @Test fun preservesLongHandwritingPayload() {
         val content = "[MANUSCRITO]" + "x".repeat(120_000)
         val source = Entry(section = "Notas", title = "Lápiz", body = content)

@@ -11,6 +11,35 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class DatabaseTest {
+    @Test fun continuousSaveKeepsOnePageAndRecoverableFailure()=runBlocking {
+        val ctx=InstrumentationRegistry.getInstrumentation().targetContext
+        val db=Room.inMemoryDatabaseBuilder(ctx,AppDatabase::class.java).build()
+        try {
+            val dao=db.entries()
+            val session=DraftSession(dao,"new:Notas:0",autoCommit=true)
+            val original=Entry(section="Notas",title="Mi página")
+            session.update(original);session.flush()
+            val id=dao.all().single().id
+            repeat(20) { session.update(original.copy(body="Cambio $it")) }
+            session.flush()
+            assertEquals(id,dao.all().single().id)
+            assertEquals("Cambio 19",dao.all().single().body)
+            assertTrue(dao.allDrafts().isEmpty())
+            session.save(original.copy(body="Versión final"));session.finish()
+            delay(600)
+            assertEquals("Versión final",dao.all().single().body)
+            val failing=DraftSession(dao,"new:Notas:999",autoCommit=true)
+            failing.update(Entry(section="Notas",title="Recuperar",notebookId=999))
+            var failed=false
+            try {failing.flush()} catch(e:Exception){failed=true}
+            assertTrue(failed)
+            assertNotNull(dao.draft("new:Notas:999"))
+            assertEquals(1,dao.all().size)
+            failing.discard();failing.finish()
+            val restored=Backup.decode(Backup.encode(dao.all(),"Mi agenda",""))
+            assertEquals(id,restored.entries.single().id)
+        } finally { db.close() }
+    }
     @Test fun concurrentWaterUpdatesAndFailedDraftFlushAreSafe()=runBlocking {
         val ctx=InstrumentationRegistry.getInstrumentation().targetContext
         val db=Room.inMemoryDatabaseBuilder(ctx,AppDatabase::class.java).build()

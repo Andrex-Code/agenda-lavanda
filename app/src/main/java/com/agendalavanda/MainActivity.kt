@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,10 @@ import java.io.File
 import java.time.LocalDate
 
 private val android.content.Context.prefs by preferencesDataStore("profile")
+private val pGuide=booleanPreferencesKey("show_guide")
+private val pReminder=booleanPreferencesKey("backup_reminder")
+private val pShowWater=booleanPreferencesKey("show_water")
+private val pShowSkin=booleanPreferencesKey("show_skin")
 private val pAgenda=stringPreferencesKey("agenda_name")
 private val pUser=stringPreferencesKey("user_name")
 private val pTheme=intPreferencesKey("theme")
@@ -40,6 +45,9 @@ private val pLastBackup=stringPreferencesKey("last_backup")
 class MainActivity:ComponentActivity() {
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor=android.graphics.Color.TRANSPARENT
+        window.navigationBarColor=android.graphics.Color.TRANSPARENT
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply {isAppearanceLightStatusBars=true;isAppearanceLightNavigationBars=true}
         val db=AppDatabase.create(this)
         setContent { AgendaApp(db.entries()) }
     }
@@ -75,16 +83,17 @@ fun AgendaApp(dao:EntryDao) {
     var menu by remember { mutableStateOf(false) }
     var entry by remember { mutableStateOf<Entry?>(null) }
     var resumed by remember { mutableStateOf<Draft?>(null) }
+    var startInk by remember {mutableStateOf(false)}
     var editorId by remember { mutableIntStateOf(0) }
     var pendingImport by remember { mutableStateOf<Backup.ImportData?>(null) }
     var busy by remember { mutableStateOf(false) }
     val snack=remember { SnackbarHostState() }
     fun action(block:suspend ()->Unit) { scope.launch { try {block()} catch(e:Exception) {if(e is CancellationException) throw e;snack.showSnackbar(e.message ?: "No se pudo completar. Intenta de nuevo.")} } }
-    fun open(e:Entry,d:Draft?=null) { editorId++;resumed=d;entry=e }
+    fun open(e:Entry,d:Draft?=null,handwriting:Boolean=false) { editorId++;resumed=d;startInk=handwriting;entry=e }
     fun create(section:String,date:String="") = Entry(section=section,title="",date=date)
     fun toggle(e:Entry) { action { dao.toggleEntry(e.id,today) } }
     val safety=remember { File(ctx.filesDir,"before-import.json") }
-    suspend fun snapshot():String { val (saved,pending)=dao.snapshot();return withContext(Dispatchers.Default){Backup.encode(saved,name,user,theme,goal,pending)} }
+    suspend fun snapshot():String { val (saved,pending)=dao.snapshot();return withContext(Dispatchers.Default){Backup.encode(saved,name,user,theme,goal,pending,prefs?.get(pShowWater) ?: true,prefs?.get(pShowSkin) ?: true,prefs?.get(pReminder) ?: true)} }
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri:Uri? ->
         if(uri!=null) action {
             val raw=snapshot()
@@ -108,52 +117,60 @@ fun AgendaApp(dao:EntryDao) {
         if(prefs==null) { Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()};return@MaterialTheme }
         BoxWithConstraints(Modifier.fillMaxSize().background(c[0]).safeDrawingPadding().imePadding()) {
             val wide=maxWidth>=840.dp
+            val sidebar=((if(maxWidth>=1200.dp) 256 else 224)*LocalDensity.current.fontScale.coerceIn(1f,1.5f)).dp
             Row(Modifier.fillMaxSize()) {
-                if(wide) Column(Modifier.width(164.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
+                if(wide) Column(Modifier.width(sidebar).fillMaxHeight().verticalScroll(rememberScrollState()).padding(8.dp)) {
                     Text("✿  Tu espacio",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(12.dp))
-                    sections.forEachIndexed { i,s -> NavigationDrawerItem(label={Text(s)},selected=page==s,onClick={page=s},
+                    sections.forEachIndexed { i,s -> NavigationDrawerItem(label={Text(s,maxLines=1)},selected=page==s,onClick={page=s},
                         icon={Icon(icons[i],null)},modifier=Modifier.padding(vertical=2.dp)) }
                 }
                 Column(Modifier.weight(1f)) {
                     Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)){Text(name.ifBlank {"Mi Agenda"},style=MaterialTheme.typography.titleLarge);Text(page,style=MaterialTheme.typography.labelLarge,color=c[2])}
-                        IconButton(onClick={page="Borradores"}){Icon(Icons.Default.History,"Borradores")}
-                        IconButton(onClick={page="Ajustes"}){Icon(Icons.Default.Settings,"Ajustes")}
+                        if(!wide) TextButton(onClick={page="Borradores"}){Text("Borradores")}
                     }
                     if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment=Alignment.TopCenter) {
+                    Box(Modifier.widthIn(max=if(page=="Calendario") 1600.dp else 1040.dp).fillMaxSize()) {
                         when(page) {
-                            "Inicio" -> HomeScreen(all,user,today,goal,drafts.size,{page=it},{open(it)})
+                            "Inicio" -> HomeScreen(all,user,today,goal,drafts.size,{page=it},{open(it)},
+                                onInk={open(create("Notas"),handwriting=true)},showGuide=prefs?.get(pGuide) ?: true,
+                                dismissGuide={action{ctx.prefs.edit{it[pGuide]=false}}},
+                                backupDue=(prefs?.get(pReminder) ?: true) && runCatching{java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(prefs?.get(pLastBackup).orEmpty()),today)>=7}.getOrDefault(true))
                             "Calendario" -> CalendarScreen(all,today,{open(it)},{day->open(create("Calendario",day.toString()))})
                             "Cuadernos" -> NotebooksScreen(all,{open(it)},{id->open(create("Notas").copy(notebookId=id))},{open(create("Cuadernos"))},{e->action{dao.trash(e.id,System.currentTimeMillis());snack.showSnackbar("Cuaderno y páginas enviados a Papelera.")}})
                             "Hábitos" -> HabitsScreen(all.filter{it.section=="Hábitos"},today,{open(create("Hábitos"))},{open(it)},{toggle(it)},{e->action{dao.trash(e.id,System.currentTimeMillis())}})
                             "Diario" -> DiaryScreen(all.filter{it.section=="Diario"},today,goal,{open(it)}, {day,delta->action{dao.changeWater(day.toString(),delta)}},
                                 {day,label->action{dao.toggleRoutine(day.toString(),label)}},
-                                {e->action{dao.trash(e.id,System.currentTimeMillis())}})
+                                {e->action{dao.trash(e.id,System.currentTimeMillis())}},showWater=prefs?.get(pShowWater) ?: true,showSkin=prefs?.get(pShowSkin) ?: true)
                             "Borradores" -> DraftsScreen(drafts,{d->action{open(EntryCodec.read(JSONObject(d.payload),validate=false),d)}},{d->action{dao.deleteDraft(d.key)}})
                             "Papelera" -> TrashScreen(records.filter{it.deletedAt>0},{e->action{dao.restoreWithParent(e)}},{e->action{dao.permanentlyDelete(e.id)}})
                             "Ajustes" -> SettingsScreen(name,user,theme,goal,prefs?.get(pLastBackup).orEmpty(),safety.exists(),
                                 {n,u,t,g->action{ctx.prefs.edit {it[pAgenda]=n;if(n.isBlank())it[pAgenda]="Mi Agenda";it[pUser]=u;it[pTheme]=t;it[pWaterGoal]=g};snack.showSnackbar("Preferencias guardadas.")}},
                                 {export.launch("agenda-${today}.json")},{import.launch(arrayOf("application/json","text/*","application/octet-stream"))},
-                                {action{pendingImport=withContext(Dispatchers.IO){Backup.decode(String(AtomicFile(safety).readFully(),Charsets.UTF_8))}}})
-                            else -> EntryListScreen(page,all.filter{it.section==page},{open(create(page))},{open(it)},{toggle(it)},{e->action{dao.trash(e.id,System.currentTimeMillis());snack.showSnackbar("Enviado a Papelera.")}})
+                                {action{pendingImport=withContext(Dispatchers.IO){Backup.decode(String(AtomicFile(safety).readFully(),Charsets.UTF_8))}}},
+                                reminder=prefs?.get(pReminder) ?: true,showWater=prefs?.get(pShowWater) ?: true,showSkin=prefs?.get(pShowSkin) ?: true,
+                                onDisplayChange={r,w,s->action{ctx.prefs.edit{it[pReminder]=r;it[pShowWater]=w;it[pShowSkin]=s}}},
+                                showHelp={action{ctx.prefs.edit{it[pGuide]=true};page="Inicio"}})
+                            else -> EntryListScreen(page,all.filter{it.section==page},{open(create(page))},{open(it)},{toggle(it)},{e->action{dao.trash(e.id,System.currentTimeMillis());snack.showSnackbar("Enviado a Papelera.")}},onInk=if(page=="Notas") ({open(create("Notas"),handwriting=true)}) else null)
                         }
+                    }
                     }
                     if(!wide) NavigationBar(containerColor=c[3]) {
                         listOf("Inicio","Calendario","Notas","Diario").forEach { s ->
-                            NavigationBarItem(selected=page==s,onClick={page=s},icon={Icon(icons[sections.indexOf(s)],null)},label={Text(s)})
+                            NavigationBarItem(selected=page==s,onClick={page=s},icon={Icon(icons[sections.indexOf(s)],null)},label={Text(s,maxLines=1)})
                         }
                         NavigationBarItem(selected=page !in listOf("Inicio","Calendario","Notas","Diario"),onClick={menu=true},icon={Icon(Icons.Default.Menu,null)},label={Text("Más")})
                     }
                 }
             }
-            SnackbarHost(snack,Modifier.align(Alignment.BottomCenter).padding(start=if(wide) 164.dp else 0.dp,bottom=if(wide) 0.dp else 80.dp))
+            SnackbarHost(snack,Modifier.align(Alignment.BottomCenter).padding(start=if(wide) sidebar else 0.dp,bottom=if(wide) 0.dp else 80.dp))
             if(menu) AlertDialog(onDismissRequest={menu=false},title={Text("Tu agenda")},text={
                 Column(Modifier.verticalScroll(rememberScrollState())) {sections.forEach{s->TextButton(onClick={page=s;menu=false},modifier=Modifier.fillMaxWidth()){Text(s)}}}
             },confirmButton={TextButton(onClick={menu=false}){Text("Cerrar")}})
             entry?.let { initial -> key(editorId) {
                 EditorScreen(initial,dao,all.filter{it.section=="Cuadernos"},resumed,
-                    onClose={entry=null;resumed=null},onSaved={entry=null;resumed=null;action{snack.showSnackbar("Guardado")}})
+                    startWithInk=startInk,onClose={entry=null;resumed=null},onSaved={entry=null;resumed=null;action{snack.showSnackbar("Guardado")}})
             } }
             if(name.isBlank()) ProfileDialog { n,u -> action {ctx.prefs.edit{it[pAgenda]=n.ifBlank{"Mi Agenda"};it[pUser]=u}} }
             pendingImport?.let { data -> AlertDialog(onDismissRequest={if(!busy)pendingImport=null},
@@ -167,7 +184,7 @@ fun AgendaApp(dao:EntryDao) {
                             try {out.write(raw.toByteArray(Charsets.UTF_8));file.finishWrite(out)} catch(e:Exception){file.failWrite(out);throw e}
                         }
                         dao.importBackup(data)
-                        ctx.prefs.edit{it[pAgenda]=data.agendaName.ifBlank{"Mi Agenda"};it[pUser]=data.userName;it[pTheme]=data.theme;it[pWaterGoal]=data.waterGoal}
+                        ctx.prefs.edit{it[pAgenda]=data.agendaName.ifBlank{"Mi Agenda"};it[pUser]=data.userName;it[pTheme]=data.theme;it[pWaterGoal]=data.waterGoal;it[pShowWater]=data.showWater;it[pShowSkin]=data.showSkin;it[pReminder]=data.reminder}
                         pendingImport=null;snack.showSnackbar("Copia restaurada.")
                     } finally {busy=false}
                 }}){Text("Restaurar")}},dismissButton={TextButton(enabled=!busy,onClick={pendingImport=null}){Text("Cancelar")}})

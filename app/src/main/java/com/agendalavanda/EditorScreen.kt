@@ -28,19 +28,18 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 @Composable
-fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:Draft?=null,onClose:()->Unit,onSaved:()->Unit) {
+fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:Draft?=null,onClose:()->Unit,onSaved:()->Unit,startWithInk:Boolean=false) {
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
     val key=remember { recovered?.key ?: if(initial.id>0) "entry:${initial.id}" else "new:${initial.section}:${initial.notebookId ?: 0}" }
-    val session=remember { DraftSession(dao,key) }
+    val session=remember { DraftSession(dao,key,autoCommit=true) }
     var entry by remember { mutableStateOf(initial) }
     var doc by remember { mutableStateOf(InkDocument()) }
     var ready by remember { mutableStateOf(false) }
     var baseline by remember { mutableStateOf<Entry?>(null) }
     var error by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
-    var ink by remember { mutableStateOf(false) }
-    var discard by remember { mutableStateOf(false) }
+    var ink by remember { mutableStateOf(startWithInk) }
     var notebookMenu by remember { mutableStateOf(false) }
     val status by session.status.collectAsStateWithLifecycle()
     val lifecycle=LocalLifecycleOwner.current
@@ -51,19 +50,31 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
             doc=InkDocument.decode(entry.body);baseline=initial.copy(body=InkDocument.decode(initial.body).encode());ready=true
         } catch(e:Exception) { error="No se pudo abrir la página: ${e.message}. El contenido original se conserva." }
     }
-    val candidate=remember(entry,doc) { entry.copy(body=doc.encode()) }
+    val candidate=remember(entry,doc) { entry.copy(body=doc.encode(),title=entry.title.trim().ifBlank { if(entry.section=="Notas") "Página manuscrita" else "${entry.section} · ${LocalDate.now()}" }) }
     val currentCandidate by rememberUpdatedState(candidate)
-    LaunchedEffect(candidate,ready) { if(ready && candidate != baseline) session.update(candidate) }
+    LaunchedEffect(candidate,ready) { if(ready && candidate != baseline && (entry.title.isNotBlank() || doc.text.isNotBlank() || doc.strokes.isNotEmpty() || session.hasSavedDocument)) session.update(candidate) }
+    val canFlush by rememberUpdatedState(ready && (entry.title.isNotBlank() || doc.text.isNotBlank() || doc.strokes.isNotEmpty() || session.hasSavedDocument))
     DisposableEffect(lifecycle) {
-        val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP && ready) scope.launch { try { session.update(currentCandidate);session.flush() } catch(e:Exception) { error="No se pudo guardar el borrador: ${e.message}" } } }
+        val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP && canFlush) scope.launch { try { session.update(currentCandidate);session.flush() } catch(e:Exception) { error="No se pudo guardar el borrador: ${e.message}" } } }
         lifecycle.lifecycle.addObserver(observer)
         onDispose { lifecycle.lifecycle.removeObserver(observer);session.finish() }
     }
-    fun close() { if(saving) return; if(!ready) {onClose();return}; scope.launch { try { if(candidate==baseline) session.discard() else {session.update(candidate);session.flush()};onClose() } catch(e:Exception) { error="No se pudo guardar el borrador. Permanece abierto para reintentar." } } }
+    fun close() {
+        if(saving) return
+        if(!ready) {onClose();return}
+        saving=true
+        scope.launch {
+            try {
+                if(entry.title.isBlank() && doc.text.isBlank() && doc.strokes.isEmpty() && initial.id==0L && !session.hasSavedDocument) session.discard()
+                else session.save(candidate.copy(updatedAt=System.currentTimeMillis()))
+                onClose()
+            } catch(e:Exception) {error="No se pudo guardar. Reintenta antes de cerrar.";saving=false}
+        }
+    }
     fun save() {
         saving=true
         scope.launch {
-            try { session.save(candidate.copy(title=entry.title.trim(),updatedAt=System.currentTimeMillis()));onSaved() }
+            try { session.save(candidate.copy(updatedAt=System.currentTimeMillis()));onSaved() }
             catch(e:Exception) {error="No se pudo guardar: ${e.message}";saving=false}
         }
     }
@@ -90,23 +101,23 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
                 Row(Modifier.fillMaxWidth().padding(8.dp),horizontalArrangement=Arrangement.SpaceBetween) {
                     TextButton(onClick={focus.clearFocus();keyboard?.hide();close()},enabled=!saving){Text("Cerrar")}
                     Text(entry.section,style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))
-                    Button(onClick={focus.clearFocus();keyboard?.hide();save()},enabled=ready && !saving && entry.title.isNotBlank() &&
+                    Button(onClick={focus.clearFocus();keyboard?.hide();save()},enabled=ready && !saving && (entry.title.isNotBlank() || doc.text.isNotBlank() || doc.strokes.isNotEmpty() || session.hasSavedDocument) &&
                         (entry.date.isBlank()||runCatching {LocalDate.parse(entry.date)}.isSuccess) &&
                         (entry.time.isBlank()||runCatching {LocalTime.parse(entry.time)}.isSuccess)) { Text(if(saving) "Guardando…" else "Guardar") }
                 }
                 if(!ready && error.isEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth())
-                Column(Modifier.weight(1f).fillMaxWidth().widthIn(max=1000.dp).verticalScroll(rememberScrollState()).padding(16.dp),
+                Column(Modifier.weight(1f).widthIn(max=760.dp).fillMaxWidth().align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     if(error.isNotEmpty()) Text(error,color=MaterialTheme.colorScheme.primary)
                     if(ready) {
-                        Text(status,style=MaterialTheme.typography.bodySmall)
+                        Text(status,style=MaterialTheme.typography.bodySmall,color=if(status.startsWith("Error")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(entry.title,{entry=entry.copy(title=it)},label={Text("Título")},modifier=Modifier.fillMaxWidth().testTag("entryTitle"),singleLine=true)
                         if(entry.section in listOf("Calendario","Tareas","Diario","Metas")) {
                             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick={
                                     val day=runCatching {LocalDate.parse(entry.date)}.getOrDefault(LocalDate.now())
                                     DatePickerDialog(context,{_,y,m,d->entry=entry.copy(date=LocalDate.of(y,m+1,d).toString())},day.year,day.monthValue-1,day.dayOfMonth).show()
-                                }){Text(if(entry.date.isBlank()) "Elegir fecha" else entry.date)}
+                                }){Text(if(entry.date.isBlank()) "Elegir fecha" else friendlyDate(entry.date))}
                                 if(entry.section in listOf("Calendario","Tareas")) OutlinedButton(onClick={
                                     val t=runCatching {LocalTime.parse(entry.time)}.getOrDefault(LocalTime.of(9,0))
                                     TimePickerDialog(context,{_,h,m->entry=entry.copy(time=LocalTime.of(h,m).toString())},t.hour,t.minute,true).show()
@@ -139,13 +150,13 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
                         if(entry.section=="Diario" && entry.title !in listOf("Agua","Skincare mañana","Skincare noche")) {
                             Text("¿Cómo te sientes?")
                             Row(Modifier.horizontalScroll(rememberScrollState())) {
-                                listOf("😊","🙂","😐","😔","😴").forEach { mood ->
-                                    TextButton(onClick={doc=doc.copy(text=mood+" "+doc.text.replace(Regex("^(😊|🙂|😐|😔|😴)\\s*"),""))}){Text(mood)}
+                                listOf("😊" to "Feliz","🙂" to "Bien","😐" to "Neutral","😔" to "Triste","😴" to "Cansada").forEach { (mood,label) ->
+                                    FilterChip(selected=doc.text.startsWith(mood),onClick={doc=doc.copy(text=mood+" "+doc.text.replace(Regex("^(😊|🙂|😐|😔|😴)\\s*"),""))},label={Text("$mood $label")})
                                 }
                             }
                         }
                         if(entry.section in listOf("Notas","Diario","Cuadernos")) {
-                            Button(onClick={ink=true},modifier=Modifier.fillMaxWidth()) {Text("✎  Escribir con lápiz · ${doc.strokes.size} trazos")}
+                            Button(onClick={ink=true},modifier=Modifier.fillMaxWidth()) {Text("✎  Escribir con lápiz")}
                             Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                                 TextButton(onClick={doc=doc.copy(text=doc.text+"\n• Prioridad del día:\n• Pendientes:\n• Algo bueno de hoy:\n")}){Text("+ Plantilla diaria")}
                                 TextButton(onClick={doc=doc.copy(text=doc.text+"\n☐ ")}){Text("+ Casilla")}
@@ -159,17 +170,12 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
                             TextButton(onClick={exportPair=entry.title to doc;pdf.launch("pagina.pdf")}){Text("Exportar PDF")}
                             if(doc.strokes.isNotEmpty()) TextButton(onClick={exportPair=entry.title to doc;png.launch("hoja.png")}){Text("Exportar hoja PNG")}
-                            TextButton(onClick={discard=true}){Text("Descartar borrador")}
+                            Text("Se guarda automáticamente en tu agenda.",style=MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             }
         }
     }
-    if(ink) InkEditor(doc,{doc=it},{ink=false})
-    if(discard) AlertDialog(onDismissRequest={discard=false},title={Text("¿Descartar los cambios del borrador?")},
-        text={Text("La última versión que guardaste de la página seguirá disponible.")},
-        confirmButton={TextButton(onClick={scope.launch {session.discard();onClose()}}){Text("Descartar")}},
-        dismissButton={TextButton(onClick={discard=false}){Text("Conservar")}})
+    if(ink && ready) InkEditor(doc,{doc=it},{ink=false},status,onRetry={scope.launch {try {session.update(candidate);session.flush()} catch(e:Exception){error="No se pudo guardar. Reintenta sin cerrar."}}})
 }
-
