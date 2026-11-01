@@ -55,7 +55,7 @@ fun EditorScreen(initial:Entry, dao:EntryDao, notebooks:List<Entry>, recovered:D
     val currentCandidate by rememberUpdatedState(candidate)
     LaunchedEffect(candidate,ready) { if(ready && candidate != baseline) session.update(candidate) }
     DisposableEffect(lifecycle) {
-        val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP) scope.launch { try { session.update(currentCandidate);session.flush() } catch(e:Exception) { error="No se pudo guardar el borrador: ${e.message}" } } }
+        val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_STOP && ready) scope.launch { try { session.update(currentCandidate);session.flush() } catch(e:Exception) { error="No se pudo guardar el borrador: ${e.message}" } } }
         lifecycle.lifecycle.addObserver(observer)
         onDispose { lifecycle.lifecycle.removeObserver(observer);session.finish() }
     }
