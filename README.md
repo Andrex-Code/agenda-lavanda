@@ -1,4 +1,4 @@
-# Agenda Lavanda 1.3.0
+# Mis Días 1.3.0
 
 Agenda Android local, sin cuentas, anuncios, analítica ni permiso de internet. Perfil y temas configurables, navegación para teléfono/tablet, calendario mensual/semanal/diario, eventos recurrentes, tareas, notas, cuadernos con páginas, diario, skincare, agua, hábitos con rachas, metas con progreso, borradores y papelera.
 
@@ -46,3 +46,5 @@ No incluye alarmas/notificaciones, reconocimiento de escritura, selección/movim
 Navegación lateral más amplia y sin duplicar Ajustes en la cabecera de tablet. Calendario y agenda del día en paneles a partir de 900 dp disponibles; Hoy y contador de eventos independientes. Listados en dos columnas desde 720 dp y formularios con ancho de lectura limitado. Estado y orden separados. Fechas legibles, estados vacíos por sección y ánimo etiquetado. Reflexión antes del autocuidado, con agua/skincare ocultables sin borrar historial. Guía opcional en Inicio, recuperable desde Ajustes. Recordatorio semanal de copia dentro de Inicio, desactivable; no es una notificación del sistema ni crea copias automáticamente.
 
 Las preferencias de visibilidad y recordatorio se guardan de inmediato; los campos de nombre/tema/meta requieren Guardar preferencias. Las copias anteriores usan los valores predeterminados al no incluir estas nuevas preferencias. La guía es propia del dispositivo. El ánimo sigue siendo parte del texto; no se anuncian estadísticas de ánimo.
+
+El nombre comercial y del lanzador Android es **Mis Días**. El nombre personal de la agenda sigue siendo configurable. Se conserva el identificador de aplicación y el formato de copias de Agenda Lavanda para mantener la compatibilidad de actualizaciones y datos.

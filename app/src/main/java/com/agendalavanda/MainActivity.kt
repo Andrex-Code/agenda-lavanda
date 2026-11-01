@@ -126,7 +126,7 @@ fun AgendaApp(dao:EntryDao) {
                 }
                 Column(Modifier.weight(1f)) {
                     Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)){Text(name.ifBlank {"Mi Agenda"},style=MaterialTheme.typography.titleLarge);Text(page,style=MaterialTheme.typography.labelLarge,color=c[2])}
+                        Column(Modifier.weight(1f)){Text(name.ifBlank {APP_NAME},style=MaterialTheme.typography.titleLarge);Text(page,style=MaterialTheme.typography.labelLarge,color=c[2])}
                         if(!wide) TextButton(onClick={page="Borradores"}){Text("Borradores")}
                     }
                     if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -146,7 +146,7 @@ fun AgendaApp(dao:EntryDao) {
                             "Borradores" -> DraftsScreen(drafts,{d->action{open(EntryCodec.read(JSONObject(d.payload),validate=false),d)}},{d->action{dao.deleteDraft(d.key)}})
                             "Papelera" -> TrashScreen(records.filter{it.deletedAt>0},{e->action{dao.restoreWithParent(e)}},{e->action{dao.permanentlyDelete(e.id)}})
                             "Ajustes" -> SettingsScreen(name,user,theme,goal,prefs?.get(pLastBackup).orEmpty(),safety.exists(),
-                                {n,u,t,g->action{ctx.prefs.edit {it[pAgenda]=n;if(n.isBlank())it[pAgenda]="Mi Agenda";it[pUser]=u;it[pTheme]=t;it[pWaterGoal]=g};snack.showSnackbar("Preferencias guardadas.")}},
+                                {n,u,t,g->action{ctx.prefs.edit {it[pAgenda]=n;if(n.isBlank())it[pAgenda]=APP_NAME;it[pUser]=u;it[pTheme]=t;it[pWaterGoal]=g};snack.showSnackbar("Preferencias guardadas.")}},
                                 {export.launch("agenda-${today}.json")},{import.launch(arrayOf("application/json","text/*","application/octet-stream"))},
                                 {action{pendingImport=withContext(Dispatchers.IO){Backup.decode(String(AtomicFile(safety).readFully(),Charsets.UTF_8))}}},
                                 reminder=prefs?.get(pReminder) ?: true,showWater=prefs?.get(pShowWater) ?: true,showSkin=prefs?.get(pShowSkin) ?: true,
@@ -172,7 +172,7 @@ fun AgendaApp(dao:EntryDao) {
                 EditorScreen(initial,dao,all.filter{it.section=="Cuadernos"},resumed,
                     startWithInk=startInk,onClose={entry=null;resumed=null},onSaved={entry=null;resumed=null;action{snack.showSnackbar("Guardado")}})
             } }
-            if(name.isBlank()) ProfileDialog { n,u -> action {ctx.prefs.edit{it[pAgenda]=n.ifBlank{"Mi Agenda"};it[pUser]=u}} }
+            if(name.isBlank()) ProfileDialog { n,u -> action {ctx.prefs.edit{it[pAgenda]=n.ifBlank{APP_NAME};it[pUser]=u}} }
             pendingImport?.let { data -> AlertDialog(onDismissRequest={if(!busy)pendingImport=null},
                 title={Text("¿Restaurar esta copia?")},text={Text("${data.entries.size} registros y ${data.drafts.size} borradores. Reemplazará el contenido actual. Se conserva una copia local previa para deshacer la importación.")},
                 confirmButton={TextButton(enabled=!busy,onClick={action{
@@ -184,7 +184,7 @@ fun AgendaApp(dao:EntryDao) {
                             try {out.write(raw.toByteArray(Charsets.UTF_8));file.finishWrite(out)} catch(e:Exception){file.failWrite(out);throw e}
                         }
                         dao.importBackup(data)
-                        ctx.prefs.edit{it[pAgenda]=data.agendaName.ifBlank{"Mi Agenda"};it[pUser]=data.userName;it[pTheme]=data.theme;it[pWaterGoal]=data.waterGoal;it[pShowWater]=data.showWater;it[pShowSkin]=data.showSkin;it[pReminder]=data.reminder}
+                        ctx.prefs.edit{it[pAgenda]=data.agendaName.ifBlank{APP_NAME};it[pUser]=data.userName;it[pTheme]=data.theme;it[pWaterGoal]=data.waterGoal;it[pShowWater]=data.showWater;it[pShowSkin]=data.showSkin;it[pReminder]=data.reminder}
                         pendingImport=null;snack.showSnackbar("Copia restaurada.")
                     } finally {busy=false}
                 }}){Text("Restaurar")}},dismissButton={TextButton(enabled=!busy,onClick={pendingImport=null}){Text("Cancelar")}})
@@ -194,7 +194,7 @@ fun AgendaApp(dao:EntryDao) {
 }
 @Composable
 private fun ProfileDialog(save:(String,String)->Unit) {
-    var n by rememberSaveable{mutableStateOf("Mi Agenda")};var u by rememberSaveable{mutableStateOf("")}
+    var n by rememberSaveable{mutableStateOf(APP_NAME)};var u by rememberSaveable{mutableStateOf("")}
     AlertDialog(onDismissRequest={},title={Text("Bienvenida a tu espacio")},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
         Text("Escribe, organiza tus días y cuida de ti. Todo se guarda en este dispositivo.")
         OutlinedTextField(n,{n=it.take(60)},label={Text("Nombre de la agenda")})

@@ -310,7 +310,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         item{Text("Cómo escribir con lápiz",style=MaterialTheme.typography.titleLarge)}
         item{Text("Abre Notas → Nueva página → Escribir con lápiz. Elige color, grosor y papel. Usa dos dedos para ampliar, Mover para desplazarte y Solo lápiz para ignorar el dedo. Los cambios se guardan automáticamente en tu agenda. Si ocurre un error, permanece en el editor y reintenta. Borradores permite recuperar cambios de sesiones anteriores.")}
         item{Text("Tus datos permanecen en este dispositivo. No hay cuenta, servidor, publicidad ni analítica. La app funciona sin internet.")}
-        item{Text("Agenda Lavanda 1.3.0 · Android",style=MaterialTheme.typography.labelMedium)}
+        item{Text("Mis Días 1.3.0 · Android",style=MaterialTheme.typography.labelMedium)}
     }
 }
 

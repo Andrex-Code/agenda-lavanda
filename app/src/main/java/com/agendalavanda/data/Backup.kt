@@ -1,5 +1,6 @@
 package com.agendalavanda.data
 
+import com.agendalavanda.APP_NAME
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -48,7 +49,7 @@ object Backup {
     fun decode(raw: String): ImportData {
         require(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "El archivo supera 15 MB." }
         val root = JSONObject(raw)
-        require(root.optString("format") == "agenda-lavanda-backup") { "No es una copia de Agenda Lavanda." }
+        require(root.optString("format") == "agenda-lavanda-backup") { "No es una copia compatible de Mis Días." }
         require(root.optInt("version") in 1..2) { "Versión de copia no compatible." }
         val array = root.getJSONArray("entries")
         require(array.length() <= 50000) { "Demasiados registros." }
@@ -71,7 +72,7 @@ object Backup {
             require(draft.key==expected) { "Identificador de borrador inválido." }
         }
         require(drafts.map { it.key }.toSet().size == drafts.size) { "Borradores duplicados." }
-        return ImportData(entries,root.optString("agendaName","Mi Agenda"),root.optString("userName"),
+        return ImportData(entries,root.optString("agendaName",APP_NAME),root.optString("userName"),
             root.optInt("theme").coerceIn(0,3),root.optInt("waterGoal",8).coerceIn(1,30),drafts,root.optBoolean("showWater",true),root.optBoolean("showSkin",true),root.optBoolean("reminder",true))
     }
     data class ImportData(val entries: List<Entry>, val agendaName: String, val userName: String, val theme: Int = 0, val waterGoal: Int = 8, val drafts: List<Draft> = emptyList(),val showWater:Boolean=true,val showSkin:Boolean=true,val reminder:Boolean=true)
