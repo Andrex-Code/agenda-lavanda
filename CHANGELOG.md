@@ -1,9 +1,13 @@
-## Versión 1.1.0 de prueba
+# 1.2.0 — Páginas y protección del trabajo
 
-- Navegación inferior con espacio reservado y panel lateral desplazable.
-- Editor manuscrito a pantalla completa en Notas, Cuadernos y Diario: dedo/lápiz, modo Solo lápiz, deshacer y rehacer. Abre Nueva página, pulsa Escribir a mano, después Listo y Guardar.
-- Trazos en coordenadas de página; la rotación conserva el editor activo.
-- Búsqueda de registros, confirmación al borrar y validación visible de fechas.
-- Corrección del perfil inicial y restauración de notas largas sin truncamiento.
+- Borradores persistentes y recuperación, papelera y cuadernos con páginas.
+- Calendario en cuadrícula, eventos con fecha/hora y repetición.
+- Hábitos por día con historial y rachas; metas con porcentaje.
+- Lápiz con colores, grosor, borrador, presión del dispositivo, zoom y movimiento de hoja.
+- Plantillas, vista previa, PDF y PNG.
+- Copias v2 con referencias y preferencias; importación de v1 y copia previa local.
+- Migración Room sin borrar registros anteriores.
 
-Esta revisión no incluye reconocimiento de escritura, sensibilidad a presión, sincronización, alarmas ni actualización automática. Cuadernos y Metas conservan su editor básico. No se ha validado aún sobre una tableta física; se recomienda exportar una copia antes de actualizar.
+Versión de prueba. Exporta una copia antes de actualizar. No incluye alarmas, OCR ni sincronización. La calidad del lápiz debe validarse en la tableta real.
+
+Validación: compilación y 11 pruebas JVM aprobadas. La instrumentación no pudo completarse por bloqueo del sistema del emulador; ver VALIDATION.md.

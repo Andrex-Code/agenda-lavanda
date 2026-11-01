@@ -1,58 +1,42 @@
-# Agenda Lavanda
+# Agenda Lavanda 1.2.0
 
-Aplicación Android nativa en Kotlin y Jetpack Compose para una agenda personal que funciona sin conexión. El nombre de la agenda y el nombre de la persona se eligen al abrirla por primera vez y se pueden cambiar en Ajustes.
+Agenda Android local, sin cuentas, anuncios, analítica ni permiso de internet. Perfil y temas configurables, navegación para teléfono/tablet, calendario mensual/semanal/diario, eventos recurrentes, tareas, notas, cuadernos con páginas, diario, skincare, agua, hábitos con rachas, metas con progreso, borradores y papelera.
 
-## Incluye
+## Prueba en Android
 
-- Inicio con resumen de tareas y avance de agua.
-- Calendario mensual, semanal y diario con eventos y tareas fechadas.
-- Tareas, notas con escritura manuscrita mediante dedo o lápiz táctil, cuadernos, diario y reflexión, estado de ánimo, rutinas de skincare, contador configurable de agua, hábitos y metas.
-- Temas lavanda, rosa, verde y durazno; navegación inferior en pantallas angostas y rail lateral en tabletas.
-- Base local Room y preferencias DataStore. No hay cuenta, servidor, SDK de analítica ni permiso de Internet.
-- Exportación e importación JSON. La importación valida formato, versión, tamaño, cantidad y secciones; si pasa la validación, sustituye las entradas locales. Haz una copia antes de restaurar.
+Descarga el APK de la versión publicada en https://github.com/Andrex-Code/agenda-lavanda/releases . Android 8.0 o posterior. Exporta una copia antes de actualizar. El APK debug usa la misma firma de las versiones anteriores de este equipo y tiene un versionCode superior. La instalación se hace abriendo el APK desde Descargas y autorizando la fuente si Android lo pide.
 
-## Compilar e instalar
+## Escritura y recuperación
 
-Requisitos: Android Studio reciente (incluye JDK 17), Android SDK Platform 35, Android Build Tools 35.x y conexión a Internet la primera vez para descargar Gradle/dependencias. Abre `outputs/AgendaLavanda` en Android Studio, deja que termine la sincronización y elige **Build > Build Bundle(s) / APK(s) > Build APK(s)**. El APK debug se crea en `app/build/outputs/apk/debug/app-debug.apk` y Android Studio muestra el botón **Locate**.
+Notas → Nueva página → Escribir con lápiz. Colores, grosores, presión proporcionada por el dispositivo, borrador de trazos completos, deshacer/rehacer, zoom con dos dedos y modo Mover. Solo lápiz ignora eventos de dedo; no es garantía de rechazo de palma en todos los dispositivos. Hoja A4 virtual con plantillas. Al cerrar el editor se conserva un borrador; Guardar confirma la página. Más → Borradores permite continuar. El autoguardado tiene un breve retardo; un corte instantáneo puede perder los últimos cambios no confirmados.
 
-En Windows, desde la carpeta del proyecto, también puedes ejecutar:
+Cuadernos permite crear y agrupar páginas. Una nota puede moverse de cuaderno desde su editor. La papelera conserva elementos hasta restaurarlos o eliminarlos definitivamente. Eliminar definitivamente un cuaderno elimina sus páginas asociadas. PDF exporta texto paginado y, si existe, una hoja adicional con los trazos. PNG exporta la hoja manuscrita.
+
+## Copias y privacidad
+
+Ajustes → Exportar copia completa. JSON v2 incluye registros, vínculos de cuadernos, historial, papelera, borradores, perfil y tema; admite importar copias v1. Límite 15 MB. Se valida antes de reemplazar la base y se conserva un archivo local previo a la importación para recuperación. El JSON no está cifrado: guárdalo en una ubicación privada. Las copias locales se pierden al desinstalar: exporta una copia fuera de la app. No hay sincronización ni copias automáticas en nube.
+
+## Compilar
+
+JDK 17 o 21, SDK Android Platform 35 y Gradle Wrapper 8.9. En Windows:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
-$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME="$env:LOCALAPPDATA\Android\Sdk"
 .\gradlew.bat testDebugUnitTest assembleDebug
+.\gradlew.bat connectedDebugAndroidTest
 ```
 
-Para instalar manualmente, copia `app-debug.apk` a la tableta, ábrelo desde Archivos y autoriza temporalmente la instalación desde esa fuente si Android lo solicita. También se puede conectar la tableta con depuración USB y ejecutar `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+El APK está en app/build/outputs/apk/debug/app-debug.apk. connectedDebugAndroidTest requiere emulador o dispositivo conectado. Android Studio abre la raíz del proyecto.
 
-## APK debug y actualizaciones
+## Firma para años de mantenimiento
 
-El APK debug está firmado automáticamente con la clave de depuración local de Gradle. Sirve para instalación manual y pruebas. No debe distribuirse como versión final: la clave debug puede cambiar entre equipos o reinstalaciones, y las instalaciones firmadas con otra clave no se pueden actualizar encima; habrá que desinstalar primero y eso borra los datos de la app. La aplicación mantiene `applicationId` `com.agendalavanda` y `versionCode` para futuras actualizaciones.
+El APK debug sirve para pruebas. La misma firma es obligatoria para actualizaciones compatibles. Para publicación, crea una clave propia con Android Studio → Generate Signed Bundle / APK, guarda el keystore y contraseñas en dos lugares seguros y no los subas al repo. Incrementa versionCode en cada actualización y conserva applicationId. Para cambiar de la firma debug a otra firma, exporta datos, desinstala la prueba, instala release e importa. No pierdas la clave: Android no admite actualizar con otra firma.
 
-### Descargar la prueba desde el teléfono
+## Arquitectura y migraciones
 
-El proyecto está en un repositorio privado de GitHub. Abre la [versión de prueba 1.0.0](https://github.com/Andrex-Code/agenda-lavanda/releases/tag/v1.0.0-test) desde el teléfono con la cuenta de GitHub autorizada, descarga `AgendaLavanda-debug.apk` e instálalo desde Descargas. Android puede pedir permiso para instalar desde el navegador o gestor de archivos. Para instalar futuras APK debug encima de esta, deben conservarse tanto el mismo equipo/keystore debug como la firma. Antes de cambiar a una compilación release, exporta tus datos; probablemente habrá que desinstalar la versión debug y eso borra sus datos.
+Room versión 2 con migración explícita desde versión 1; esquemas en app/schemas. Entry agrupa registros con índice de cuaderno; Draft conserva borradores. DraftSession serializa autoguardado y confirmación final para impedir que una escritura pendiente resucite un borrador confirmado. EntryCodec y Backup validan y conservan referencias. InkDocument guarda trazos versionados y lee los manuscritos anteriores. La UI está en MainActivity, Screens, EditorScreen y el paquete ink. No usar migraciones destructivas.
 
-## Crear un release y conservar la clave
+## Límites conocidos
 
-Genera una clave de publicación una sola vez en un equipo seguro. No subas el archivo ni sus contraseñas al repositorio:
-
-```powershell
-keytool -genkeypair -v -keystore agenda-release.jks -alias agenda -keyalg RSA -keysize 4096 -validity 10000
-```
-
-Resguarda el keystore y sus contraseñas en dos ubicaciones seguras y separadas. Para cada actualización, firma con **el mismo keystore y alias**, incrementa `versionCode` en `app/build.gradle.kts` y crea un APK release desde Android Studio: **Build > Generate Signed Bundle / APK > APK > Create new/Choose existing**. Comprueba e instala la actualización antes de distribuirla. Si pierdes la clave, Android no aceptará el APK como actualización de la instalación existente.
-
-## Datos y respaldos
-
-La base de datos está en el almacenamiento privado de la app. Exporta regularmente una copia desde **Ajustes > Exportar copia JSON** y guárdala en una ubicación privada adicional (por ejemplo, almacenamiento externo protegido). El JSON puede contener texto personal; no lo publiques ni lo envíes sin cifrar. Para restaurar, usa **Importar copia JSON** y selecciona el archivo. No se hace sincronización en nube.
-
-## Arquitectura y mantenimiento
-
-- `data/Entry.kt`, `EntryDao.kt`, `AppDatabase.kt`: registros locales tipados por sección en Room.
-- `data/Backup.kt`: formato versionado y validación de importaciones.
-- `MainActivity.kt`: interfaz Compose, preferencias de perfil/tema y navegación adaptable.
-- Room usa esquema exportado en `app/schemas`. Al cambiar entidades, incrementa `@Database(version = ...)`, agrega una migración explícita en `AppDatabase` y conserva los esquemas previos. No habilites `fallbackToDestructiveMigration`.
-- Ejecuta `gradlew testDebugUnitTest` para las pruebas de validación y serialización. Compila además `assembleDebug` antes de instalar.
-
-La prueba de uso real debe hacerse también en una tableta Android física, especialmente la escritura con lápiz, restauración desde el proveedor de archivos de esa tableta y rotación. Esta entrega no garantiza ausencia total de defectos.
+No incluye alarmas/notificaciones, reconocimiento de escritura, selección/movimiento de trazos individuales, colaboración ni actualización automática. La sensibilidad y rechazo de palma deben validarse en tabletas físicas. Las tareas tienen fecha/hora pero no disparan recordatorios. La recurrencia de eventos no equivale a un sistema de alertas.
