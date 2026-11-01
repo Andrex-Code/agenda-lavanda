@@ -64,7 +64,7 @@ class FlowTest {
         assertEquals(records.first{it.title==book}.id,records.first{it.title==page}.notebookId)
         compose.onAllNodesWithText("Diario").onFirst().performClick()
         compose.onNodeWithText("+ Un vaso").performClick()
-        compose.onNodeWithText("Skincare mañana").performClick()
+        compose.onNodeWithTag("routine-Skincare mañana").performClick()
         compose.waitForIdle()
         compose.waitUntil(30000){runBlocking{dao.all().any{it.title=="Agua" && it.body.toIntOrNull()?.let{n->n>0}==true}}}
         menu("Metas")
@@ -72,7 +72,7 @@ class FlowTest {
         compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isNotEmpty()}
         val goal="Meta "+System.nanoTime()
         compose.onNodeWithTag("entryTitle").performTextInput(goal)
-        compose.onNode(hasSetProgressAction()).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress){it(50f)}
+        compose.onNode(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.SetProgress)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress){it(50f)}
         compose.onNodeWithText("Guardar").performClick()
         compose.waitUntil(30000){runBlocking{dao.all().any{it.title==goal&&it.progress==50}}}
         capture("goals")

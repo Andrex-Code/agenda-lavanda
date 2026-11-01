@@ -2,6 +2,9 @@ package com.agendalavanda
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -174,8 +177,8 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         }}
         item{Card{Column(Modifier.fillMaxWidth().padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
             Text("Tu autocuidado",style=MaterialTheme.typography.titleLarge)
-            listOf("Skincare mañana","Skincare noche").forEach{label->Row(verticalAlignment=Alignment.CenterVertically){
-                Checkbox(daily.any{it.title==label&&it.done},{routine(day,label)});Text(label)
+            listOf("Skincare mañana","Skincare noche").forEach{label->Row(Modifier.fillMaxWidth().testTag("routine-$label").toggleable(value=daily.any{it.title==label&&it.done},role=Role.Checkbox,onValueChange={routine(day,label)}),verticalAlignment=Alignment.CenterVertically){
+                Checkbox(daily.any{it.title==label&&it.done},null);Text(label)
             }}
             Text("Agua: $count / $goal vasos")
             LinearProgressIndicator(progress={(count.toFloat()/goal).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
@@ -195,7 +198,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         if(entries.isEmpty())item{Empty("Empieza con algo pequeño: leer, caminar, descansar…")}
         items(entries,key={it.id}){e->
             Card{Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Row(verticalAlignment=Alignment.CenterVertically){Checkbox(e.completedOn(today),{toggle(e)});Text(e.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)}
+                Row(Modifier.fillMaxWidth().toggleable(value=e.completedOn(today),role=Role.Checkbox,onValueChange={toggle(e)}),verticalAlignment=Alignment.CenterVertically){Checkbox(e.completedOn(today),null);Text(e.title,Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)}
                 Text("Racha actual: ${e.streak(today)} días")
                 Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){
                     (6 downTo 0).forEach{n->val d=today.minusDays(n.toLong());Column(horizontalAlignment=Alignment.CenterHorizontally){Text(d.dayOfMonth.toString(),style=MaterialTheme.typography.labelSmall);Text(if(e.completedOn(d))"●" else "○",color=MaterialTheme.colorScheme.primary)}}
