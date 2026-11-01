@@ -40,6 +40,7 @@ class FlowTest {
         compose.onNodeWithText(title).assertIsDisplayed()
         capture("calendar-landscape")
         compose.runOnUiThread {compose.activity.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT}
+        compose.waitUntil(30000){compose.activity.resources.configuration.orientation==android.content.res.Configuration.ORIENTATION_PORTRAIT}
     }
     @Test fun notebookPageDiaryAndGoalPersist() {
         start()
@@ -66,7 +67,7 @@ class FlowTest {
         val dao=AppDatabase.create(compose.activity).entries()
         val records=runBlocking {dao.all()}
         assertEquals(records.first{it.title==book}.id,records.first{it.title==page}.notebookId)
-        compose.onAllNodesWithText("Diario").onFirst().performClick()
+        compose.onAllNodesWithText("Diario").onFirst().performScrollTo().performClick()
         compose.waitUntil(30000){compose.onAllNodesWithTag("diaryList").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("diaryList").performScrollToNode(hasText("+ Un vaso"))
         compose.onNodeWithText("+ Un vaso").performClick()
