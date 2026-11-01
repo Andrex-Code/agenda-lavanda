@@ -300,7 +300,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
         item{Text("Ocultar un seguimiento conserva su historial.",style=MaterialTheme.typography.bodySmall)}
         item{Text("Cuida tus recuerdos",style=MaterialTheme.typography.titleLarge)}
         item{Row(Modifier.fillMaxWidth().toggleable(value=reminder,role=Role.Switch,onValueChange={onDisplayChange(it,showWater,showSkin)}),verticalAlignment=Alignment.CenterVertically){Switch(reminder,null);Text("Recordatorio semanal en Inicio",Modifier.padding(start=12.dp))}}
-        item{Text(if(lastBackup.isBlank())"Aún no has exportado una copia. Guarda una fuera de la tablet para protegerte si se pierde o se daña." else "Última copia exportada: $${friendlyDate(lastBackup)}")}
+        item{Text(if(lastBackup.isBlank())"Aún no has exportado una copia. Guarda una fuera de la tablet para protegerte si se pierde o se daña." else "Última copia exportada: ${friendlyDate(lastBackup)}")}
         item{OutlinedButton(onClick=export,modifier=Modifier.fillMaxWidth()){Text("Exportar copia completa")}}
         item{OutlinedButton(onClick=import,modifier=Modifier.fillMaxWidth()){Text("Importar copia")}}
         if(hasSafety)item{OutlinedButton(onClick=restoreSafety,modifier=Modifier.fillMaxWidth()){Text("Recuperar estado previo a última importación")}}
