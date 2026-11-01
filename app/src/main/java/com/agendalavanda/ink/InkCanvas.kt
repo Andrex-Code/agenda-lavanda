@@ -64,19 +64,25 @@ class InkCanvas(context: Context): View(context) {
     private fun point(x:Float,y:Float,pressure:Float)=InkPoint(((x-originX)/scale).coerceIn(0f,PagePainter.WIDTH),
         ((y-originY)/scale).coerceIn(0f,PagePainter.HEIGHT),pressure.coerceIn(.3f,1.5f))
     override fun onTouchEvent(e:MotionEvent):Boolean {
-        // In pen-only mode, reject palm/finger events without feeding the gesture detector.
-        if(!allowFinger && e.getToolType(e.actionIndex)==MotionEvent.TOOL_TYPE_FINGER && mode!="pan") return true
-        detector.onTouchEvent(e)
-        if(e.pointerCount>1) { points.clear();removed=emptySet();multi=true;invalidate();return true }
-        when(e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                multi=false; pointer=e.getPointerId(0);points.clear();removed=emptySet();lastX=e.x;lastY=e.y
-                parent.requestDisallowInterceptTouchEvent(true)
-            }
-            MotionEvent.ACTION_CANCEL -> { points.clear();removed=emptySet();pointer=-1;invalidate();return true }
+        val penOnly=!allowFinger && mode!="pan"
+        if(e.actionMasked==MotionEvent.ACTION_CANCEL) {points.clear();removed=emptySet();pointer=-1;invalidate();return true}
+        if(!penOnly) {
+            detector.onTouchEvent(e)
+            if(e.pointerCount>1) {points.clear();removed=emptySet();multi=true;pointer=-1;invalidate();return true}
+        }
+        val isDown=e.actionMasked==MotionEvent.ACTION_DOWN || e.actionMasked==MotionEvent.ACTION_POINTER_DOWN
+        if(isDown) {
+            val tool=e.getToolType(e.actionIndex)
+            if(penOnly && tool!=MotionEvent.TOOL_TYPE_STYLUS && tool!=MotionEvent.TOOL_TYPE_ERASER) return true
+            if(pointer>=0 && e.actionMasked==MotionEvent.ACTION_POINTER_DOWN) return true
+            multi=false;pointer=e.getPointerId(e.actionIndex);points.clear();removed=emptySet()
+            lastX=e.getX(e.actionIndex);lastY=e.getY(e.actionIndex)
+            parent?.requestDisallowInterceptTouchEvent(true)
         }
         if(multi) return true
         val index=e.findPointerIndex(pointer);if(index<0)return true
+        val isUp=e.actionMasked==MotionEvent.ACTION_UP || e.actionMasked==MotionEvent.ACTION_POINTER_UP
+        if(isUp && e.getPointerId(e.actionIndex)!=pointer) return true
         if(mode=="pan") { if(e.actionMasked==MotionEvent.ACTION_MOVE) { dx+=e.x-lastX;dy+=e.y-lastY;invalidate() };lastX=e.x;lastY=e.y;return true }
         val pressure=if(e.getToolType(index)==MotionEvent.TOOL_TYPE_STYLUS) e.getPressure(index) else 1f
         val batch=(0 until e.historySize).map { h -> point(e.getHistoricalX(index,h),e.getHistoricalY(index,h),pressure) }+
@@ -84,7 +90,7 @@ class InkCanvas(context: Context): View(context) {
         if(mode=="erase" || e.getToolType(index)==MotionEvent.TOOL_TYPE_ERASER) {
             document.strokes.forEachIndexed { i,s -> if(batch.any { s.hit(it,16f) }) removed=removed+i }
         } else points.addAll(batch)
-        if(e.actionMasked==MotionEvent.ACTION_UP) {
+        if(isUp) {
             if(removed.isNotEmpty()) onChange(document.copy(strokes=document.strokes.filterIndexed { i,_ -> i !in removed }))
             else if(points.isNotEmpty()) onChange(document.copy(strokes=document.strokes+InkStroke(points.toList(),penColor,penWidth)))
             points.clear();removed=emptySet();pointer=-1;performClick()
