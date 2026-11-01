@@ -9,7 +9,7 @@ object PagePainter {
     const val HEIGHT=1414f
     fun draw(canvas: Canvas, document: InkDocument, excluded:Set<Int> = emptySet()) {
         canvas.drawColor(Color.WHITE)
-        val grid=Paint().apply { color=0xffe5dfef.toInt(); strokeWidth=1f }
+        val grid=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=0xffe5dfef.toInt(); strokeWidth=1f }
         when(document.paper) {
             "lines" -> { var y=48f; while(y<HEIGHT) { canvas.drawLine(24f,y,WIDTH-24,y,grid); y+=36 } }
             "grid" -> { var n=24f; while(n<HEIGHT) { canvas.drawLine(0f,n,WIDTH,n,grid); n+=24 }
@@ -41,6 +41,7 @@ class InkCanvas(context: Context): View(context) {
     private var lastY=0f
     private var multi=false
     private var pageBitmap:Bitmap?=null
+    private val bitmapPaint=Paint(Paint.FILTER_BITMAP_FLAG)
     private var cachedStrokes:List<InkStroke>?=null
     private var cachedPaper:String?=null
     private var cachedRemoved:Set<Int> = emptySet()
@@ -67,7 +68,7 @@ class InkCanvas(context: Context): View(context) {
             PagePainter.draw(Canvas(bitmap),document,removed)
             cachedStrokes=document.strokes;cachedPaper=document.paper;cachedRemoved=removed
         }
-        canvas.drawBitmap(bitmap,0f,0f,null)
+        canvas.drawBitmap(bitmap,0f,0f,bitmapPaint)
         if(mode=="pen" && points.isNotEmpty()) PagePainter.drawStroke(canvas,InkStroke(points,penColor,penWidth))
         canvas.restore();canvas.restore()
     }

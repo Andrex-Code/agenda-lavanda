@@ -11,6 +11,24 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class InkInputTest {
+    @Test fun ruledPaperKeepsItsLinesWhenScaledToPhoneWidth() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val context=InstrumentationRegistry.getInstrumentation().targetContext
+            val view=InkCanvas(context);FrameLayout(context).addView(view);view.layout(0,0,480,800)
+            val bitmap=android.graphics.Bitmap.createBitmap(480,800,android.graphics.Bitmap.Config.ARGB_8888)
+            try {
+                view.document=InkDocument(paper="lines")
+                view.draw(android.graphics.Canvas(bitmap))
+                var lines=0;var previous=false
+                for(y in 1 until 670) {
+                    val ink=android.graphics.Color.red(bitmap.getPixel(240,y))<254
+                    if(ink && !previous) lines++
+                    previous=ink
+                }
+                assertTrue("Los renglones deben conservarse al reducir la hoja: $lines",lines>=36)
+            } finally {bitmap.recycle()}
+        }
+    }
     @Test fun cachedPageRefreshesAfterRemovingStrokes() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
