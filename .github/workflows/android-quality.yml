@@ -52,7 +52,7 @@ jobs:
           script: |
             adb shell wm size ${{ matrix.size }}
             adb shell wm density ${{ matrix.density }}
-            ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx2g connectedDebugAndroidTest
+            bash .github/run-device-tests.sh
       - name: Logs
         if: always()
         run: timeout 15 adb logcat -d > emulator-log.txt || true
@@ -65,4 +65,5 @@ jobs:
             app/build/test-results/
             app/build/outputs/androidTest-results/
             emulator-log.txt
+            qa-screens/
 
