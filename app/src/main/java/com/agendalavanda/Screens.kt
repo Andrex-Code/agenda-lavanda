@@ -83,7 +83,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
     val day=LocalDate.parse(selected);val month=YearMonth.from(day)
     val events=all.filter{it.section in listOf("Calendario","Tareas")}
     fun shift(delta:Long){selected=when(mode){"Mes"->day.plusMonths(delta);"Semana"->day.plusWeeks(delta);else->day.plusDays(delta)}.toString()}
-    LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+    LazyColumn(Modifier.testTag("calendarList"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
         item{Row(verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={shift(-1)}){Icon(Icons.Default.ChevronLeft,"Anterior")}
             Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy",spanish)),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
@@ -168,7 +168,7 @@ private fun note(e:Entry)=runCatching{InkDocument.decode(e.body)}.getOrDefault(I
 @Composable fun DiaryScreen(entries:List<Entry>,today:LocalDate,goal:Int,open:(Entry)->Unit,water:(LocalDate,Int)->Unit,routine:(LocalDate,String)->Unit,trash:(Entry)->Unit) {
     var selected by rememberSaveable{mutableStateOf(today.toString())};val day=LocalDate.parse(selected)
     val daily=entries.filter{it.date==selected};val count=daily.firstOrNull{it.title=="Agua"}?.body?.toIntOrNull() ?: 0
-    LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+    LazyColumn(Modifier.testTag("diaryList"),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
         item{Row(verticalAlignment=Alignment.CenterVertically){
             IconButton(onClick={selected=day.minusDays(1).toString()}){Icon(Icons.Default.ChevronLeft,"Día anterior")}
             Text(selected,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)

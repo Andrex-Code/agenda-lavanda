@@ -19,9 +19,8 @@ class FlowTest {
     }
     private fun capture(name:String) {
         val instrumentation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        val bitmap=instrumentation.uiAutomation.takeScreenshot() ?: return
-        val directory=java.io.File(compose.activity.getExternalFilesDir(null),"qa").apply{mkdirs()}
-        try {java.io.File(directory,name+".png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}} finally {bitmap.recycle()}
+        val command="mkdir -p /sdcard/Download/agenda-qa && screencap -p /sdcard/Download/agenda-qa/$name.png"
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use {it.readBytes()}
     }
     @After fun captureResult(){capture("last-screen")}
     @Test fun calendarSurvivesRotation() {
@@ -32,10 +31,13 @@ class FlowTest {
         val title="Evento "+System.nanoTime()
         compose.onNodeWithTag("entryTitle").performTextInput(title)
         compose.onNodeWithText("Guardar").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
         compose.waitUntil(30000){compose.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()}
         compose.runOnUiThread {compose.activity.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE}
         compose.waitForIdle()
-        compose.onNodeWithText(title).performScrollTo().assertIsDisplayed()
+        compose.waitUntil(30000){compose.activity.resources.configuration.orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE}
+        compose.onNodeWithTag("calendarList").performScrollToNode(hasText(title))
+        compose.onNodeWithText(title).assertIsDisplayed()
         capture("calendar-landscape")
         compose.runOnUiThread {compose.activity.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT}
     }
@@ -51,6 +53,7 @@ class FlowTest {
         val book="Cuaderno "+System.nanoTime()
         compose.onNodeWithTag("entryTitle").performTextInput(book)
         compose.onNodeWithText("Guardar").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
         compose.waitUntil(30000){compose.onAllNodesWithText("▤  "+book).fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("▤  "+book).performClick()
         compose.onNodeWithText("+ Nueva página en este cuaderno").performClick()
@@ -58,11 +61,13 @@ class FlowTest {
         val page="Página "+System.nanoTime()
         compose.onNodeWithTag("entryTitle").performTextInput(page)
         compose.onNodeWithText("Guardar").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
         compose.waitUntil(30000){compose.onAllNodesWithText(page).fetchSemanticsNodes().isNotEmpty()}
         val dao=AppDatabase.create(compose.activity).entries()
         val records=runBlocking {dao.all()}
         assertEquals(records.first{it.title==book}.id,records.first{it.title==page}.notebookId)
         compose.onAllNodesWithText("Diario").onFirst().performClick()
+        compose.onNodeWithTag("diaryList").performScrollToNode(hasText("+ Un vaso"))
         compose.onNodeWithText("+ Un vaso").performClick()
         compose.onNodeWithTag("routine-Skincare mañana").performClick()
         compose.waitForIdle()
@@ -74,6 +79,7 @@ class FlowTest {
         compose.onNodeWithTag("entryTitle").performTextInput(goal)
         compose.onNode(SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.SetProgress)).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress){it(50f)}
         compose.onNodeWithText("Guardar").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
         compose.waitUntil(30000){runBlocking{dao.all().any{it.title==goal&&it.progress==50}}}
         capture("goals")
     }
@@ -90,7 +96,8 @@ class FlowTest {
         compose.onNodeWithTag("inkCanvas").performTouchInput { swipe(Offset(100f,150f),Offset(230f,230f),500) }
         capture("ink-page")
         compose.onNodeWithText("Volver a la nota").performClick()
-        compose.onNodeWithText("Guardar",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("Guardar").performClick()
+        compose.waitUntil(30000){compose.onAllNodesWithTag("entryTitle").fetchSemanticsNodes().isEmpty()}
         compose.waitUntil(30000){compose.onAllNodesWithText(noteTitle).fetchSemanticsNodes().isNotEmpty()}
         val dao=AppDatabase.create(compose.activity).entries()
         val saved=runBlocking{dao.all().first{it.title==noteTitle}}
